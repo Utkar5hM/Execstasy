@@ -30,3 +30,10 @@ go.work.sum
 # Editor/IDE
 # .idea/
 # .vscode/
+
+
+# web project NEXT.JS
+web/node_modules/
+web/.next/
+web/.swc/
+web/.*.env
