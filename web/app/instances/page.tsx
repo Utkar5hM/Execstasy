@@ -1,66 +1,68 @@
-import { z } from "zod"
+"use client";
 
-import { columns } from "./components/columns"
-import { DataTable } from "./components/data-table"
-import { taskSchema } from "./data/schema"
-import { apiClient } from "@/utils/apiClient"
+import { useEffect, useState } from "react";
+import { z } from "zod";
 
-// Simulate a database read for tasks.
-async function getTasks() {
-  // const response = await apiClient.get("/api/instances")
-  // const tasks = response.data
+import { columns } from "./components/columns";
+import { DataTable } from "./components/data-table";
+import { taskSchema } from "./data/schema";
+import { apiClient } from "@/utils/apiClient";
+import { Button } from "@/components/ui/button";
+import { IconDeviceLaptop } from "@tabler/icons-react";
 
-  return z.array(taskSchema).parse([{
-    "id": "7",
-    "Name": "Staging Server",
-    "HostAddress": "myinstancia.lfg",
-    "Status": "active",
-    "CreatedBy": "utkarshrm568@gmail.com"
-},
-{
-  "id": "2",
-  "Name": "Execstasy",
-  "HostAddress": "testtt.com",
-  "Status": "disabled",
-  "CreatedBy": "utkarshrm568@gmail.com"
-},
-{
-  "id": "3",
-  "Name": "Olaola uberaaa",
-  "HostAddress": "10.32.45.12",
-  "Status": "disabled",
-  "CreatedBy": "utkarshrm568@gmail.com"
-}])
-}
+export default function TaskPage() {
+  const [tasks, setTasks] = useState<z.infer<typeof taskSchema>[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-// Server Component
-export default async function TaskPage() {
-  const tasks = await getTasks()
+  useEffect(() => {
+    async function fetchTasks() {
+      try {
+        type Task = {
+          ID: number;
+          name: string;
+          status: string;
+        };
+        const response = await apiClient.get<Task[]>("/api/instances");
+        // const transformedData = response.data.map((task: any) => {
+        //   const { ID, ...rest } = task; // Extract "ID" and the rest of the object
+        //   return { id: ID, ...rest }; // Rename "ID" to "id"
+        // });
+  2
+        const tasks = z.array(taskSchema).parse(response.data);
+        setTasks(tasks);
+      } catch (err) {
+        console.error("Failed to fetch tasks:", err);
+        setError("Failed to load tasks.");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchTasks();
+  }, []);
+
+  if (loading) {
+    return <div>Loading...</div>;
+  }
+
+  if (error) {
+    return <div>Error: {error}</div>;
+  }
 
   return (
-    <TaskPageClient tasks={tasks} />
-  )
-}
-
-// Client Component
-function TaskPageClient({ tasks }: { tasks: z.infer<typeof taskSchema>[] }) {
-  return (
-    <>
-      <div className="md:hidden">
-      </div>
-      <div className="hidden h-full flex-1 flex-col space-y-8 p-8 md:flex">
-        <div className="flex items-center justify-between space-y-2">
-          <div>
-            <h2 className="text-2xl font-bold tracking-tight">Your Instances</h2>
-          </div>
-          <div className="flex items-center space-x-2">
-            <button className="btn btn-primary">
-              Create Instance
-            </button>
-          </div>
+    <div className="hidden h-full flex-1 flex-col space-y-8 p-8 md:flex">
+      <div className="flex items-center justify-between space-y-2">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight">Your Instances</h2>
         </div>
-        <DataTable data={tasks} columns={columns} />
+        <div className="flex items-center space-x-2">
+        <Button size="sm">
+      <IconDeviceLaptop /> Create Instance
+    </Button>
+        </div>
       </div>
-    </>
-  )
+      <DataTable data={tasks} columns={columns} />
+    </div>
+  );
 }

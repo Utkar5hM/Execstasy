@@ -98,11 +98,11 @@ export const columns: ColumnDef<Task>[] = [
     enableHiding: false,
   },
   {
-    accessorKey: "id",
+    accessorKey: "ID",
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="" />
     ),
-    cell: ({ row }) => <Link href={`/instances/${row.getValue("id")}`}>
+    cell: ({ row }) => <Link href={`/instances/view/${row.getValue("ID")}`}>
 <Button
         variant="outline"
         size="sm"
