@@ -32,7 +32,7 @@ func generateUserCode() (string, error) {
 		code[i] = charset[num.Int64()]
 	}
 	// Optionally, insert a hyphen in the middle for readability
-	return string(code[:4]) + "-" + string(code[4:]), nil
+	return string(code), nil
 }
 
 func (h *instanceHandler) deviceAuthorization(c echo.Context) error {
@@ -105,7 +105,7 @@ func (h *instanceHandler) deviceAuthorization(c echo.Context) error {
 
 	return c.JSON(200, echo.Map{
 		"device_code":               deviceCode,
-		"user_code":                 userCode,
+		"user_code":                 string(userCode[:4]) + "-" + string(userCode[4:]),
 		"verification_uri":          c.Scheme() + "://" + c.Request().Host + "/oauth",
 		"verification_uri_complete": c.Scheme() + "://" + c.Request().Host + "/oauth?user_code=" + userCode,
 		"expires_in":                (10 * time.Minute) / time.Second,

@@ -1,7 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
+import React from "react";
 import {
   Dialog,
   DialogContent,
@@ -10,92 +10,62 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import {
-	InputOTP,
-	InputOTPGroup,
-	InputOTPSeparator,
-  } from "@/components/ui/input-otp"
 
+import {
+  InputOTP,
+  InputOTPGroup,
+  InputOTPSeparator,
+  InputOTPSlot,
+} from "@/components/ui/input-otp"
+
+// import { apiClient } from "@/utils/apiClient";
 
 import { useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
-import { apiClient } from "@/utils/apiClient";
 
+import { zodResolver } from "@hookform/resolvers/zod"
+import { useForm } from "react-hook-form"
+import { toast } from "sonner"
+import { z } from "zod"
+import { Button } from "@/components/ui/button"
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormMessage,
+} from "@/components/ui/form"
 
-import React from "react";
-
-interface InputOTPSlotProps extends React.InputHTMLAttributes<HTMLInputElement> {
-  index: number;
-}
-
-export const InputOTPSlot: React.FC<InputOTPSlotProps> = ({ index, ...props }) => {
-  return (
-    <input
-      {...props} // Forward all props (e.g., value, onChange)
-      type="text"
-      maxLength={1} // Limit to one character per slot
-      className="w-10 h-10 text-center border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-      data-otp-slot={index} // Add a custom attribute for identification
-    />
-  );
-};
-
-
+const FormSchema = z.object({
+  user_code: z.string().min(8, {
+    message: "Your one-time password must be 8 characters.",
+  }).regex(/^[A-Z0-9]+$/, { message: "Your one-time password must be alphanumeric." }),
+})
 export function OAuthForm({
   className,
   ...props
 }: React.ComponentProps<"div">) {
   const searchParams = useSearchParams(); // Access query parameters
-  const otp = searchParams.get("user_code"); // Get the `user_code` query parameter
-  const [otpValues, setOtpValues] = useState<string[]>(Array(8).fill("")); // State to manage OTP values
-  const [loading, setLoading] = useState(false); // State to manage loading
-  const [error, setError] = useState<string | null>(null); // State to manage errors
-  const [statusDialogOpen, setStatusDialogOpen] = useState(false); // State to control the second dialog
-  const [statusMessage, setStatusMessage] = useState<string>(""); // State to store the status message
-  const [confirmationDialogOpen, setConfirmationDialogOpen] = useState(false); // State to control the confirmation dialog
-  useEffect(() => {
-    if (otp && otp.length === 9 && otp.includes("-")) {
-      // Remove the dash and split the OTP into individual characters
-      const otpArray = otp.replace("-", "").split("");
-      setOtpValues(otpArray); // Update the state with the OTP values
-    }
-  }, [otp]);
-
-  const handleChange = (index: number, value: string) => {
-    const newOtpValues = [...otpValues];
-    newOtpValues[index] = value;
-    setOtpValues(newOtpValues);
-  };
-
-  const handleSubmit = async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      // Combine OTP values into a single string with a dash
-      const userCode = `${otpValues.slice(0, 4).join("")}-${otpValues.slice(4, 8).join("")}`;
-
-      // Make the API call
-      const response = await apiClient.post("/api/oauth", {
-        user_code: userCode,
-      });
-
-      console.log("Response:", response);
-      setStatusMessage("Access approved successfully!"); // Success message
-    } catch (err: any) {
-      console.error(err);
-      setStatusMessage(err.message || "An unexpected error occurred"); // Error message
-    } finally {
-      setLoading(false);
-      setStatusDialogOpen(true); // Open the status dialog
-      setConfirmationDialogOpen(false); // Close the confirmation dialog
-
-    }
-  };
-
+  const userCode = searchParams.get("user_code") || ""; // Get the `user_code` query parameter 
+  const form = useForm<z.infer<typeof FormSchema>>({
+    resolver: zodResolver(FormSchema),
+    defaultValues: {
+      user_code: userCode ? userCode : "",
+    },
+  })
+  function onSubmit(data: z.infer<typeof FormSchema>) {
+    toast("You submitted the following values", {
+      description: (
+        <pre className="mt-2 w-[320px] rounded-md bg-neutral-950 p-4">
+          <code className="text-white">{JSON.stringify(data, null, 2)}</code>
+        </pre>
+      ),
+    })
+    console.log("Form submitted with data:", data);
+  }
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
-      <form>
+
+<Form {...form}>
         <div className="flex flex-col gap-6">
           <div className="flex flex-col items-center gap-2">
             <h1 className="text-xl font-bold">Instance Access</h1>
@@ -103,41 +73,42 @@ export function OAuthForm({
             Enter the OTP given in your terminal
             </div>
           </div>
-          <div className="flex flex-col gap-6">
-            <div className="grid gap-3">
-            <div className="flex flex-col items-center justify-center">
-            <InputOTP maxLength={8} className="flex flex-col items-center gap-4">
-                <InputOTPGroup>
-                  {otpValues.slice(0, 4).map((value, index) => (
-                    <InputOTPSlot
-                      key={index}
-                      index={index}
-                      value={value} // Controlled value
-                      onChange={(e) =>
-                        handleChange(index, (e.target as HTMLInputElement).value) // Cast e.target
-                      }
-                    />
-                  ))}
-                </InputOTPGroup>
-                <InputOTPSeparator />
-                <InputOTPGroup>
-                  {otpValues.slice(4, 8).map((value, index) => (
-                    <InputOTPSlot
-                          key={index + 4}
-                          index={index + 4}
-                          value={value} // Controlled value
-                          onChange={(e) =>
-                            handleChange(index + 4, (e.target as HTMLInputElement).value) // Cast e.target
-                          }
-                          />
-                  ))}
-                </InputOTPGroup>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col items-center">
+            <FormField
+          control={form.control}
+          name="user_code"
+          render={({ field }) => (
+            <FormItem>
+              <FormControl>
+                <InputOTP maxLength={8} {...field}
+                
+          onInput={(e) => {
+            const input = e.target as HTMLInputElement;
+            input.value = input.value.toUpperCase().replace(/[^A-Z0-9]/g, ""); // Allow only A-Z and 0-9
+            field.onChange(input.value); // Update the form state
+          }}>
+                  <InputOTPGroup>
+                    <InputOTPSlot index={0} />
+                    <InputOTPSlot index={1} />
+                    <InputOTPSlot index={2} />
+                    <InputOTPSlot index={3} />
+                    </InputOTPGroup>
+                    <InputOTPSeparator />
+                    <InputOTPGroup>
+                    <InputOTPSlot index={4} />
+                    <InputOTPSlot index={5} />
+                    <InputOTPSlot index={6} />
+                    <InputOTPSlot index={7} />
+                  </InputOTPGroup>
                 </InputOTP>
-            </div>
-            </div>
-            <Dialog open={confirmationDialogOpen} onOpenChange={setConfirmationDialogOpen}>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+            <Dialog >
             <DialogTrigger asChild>
-            <Button type="button" className="w-full">
+            <Button type="button" className="w-full mt-6">
               Approve
             </Button>
             </DialogTrigger>
@@ -149,34 +120,31 @@ export function OAuthForm({
                 </DialogDescription>
               </DialogHeader>
       <Button
-        type="button"
+        type="submit" onClick={form.handleSubmit(onSubmit)}
         className="w-full bg-green-500 text-white hover:bg-green-600 focus:ring-2 focus:ring-green-400 focus:outline-none mt-4"
-        onClick={handleSubmit}
-        disabled={loading}
-      >
-        {loading ? "Processing..." : "Sure"}
+      >Submit
       </Button>
             </DialogContent>
           </Dialog>
-                {/* Status Dialog */}
-      <Dialog open={statusDialogOpen} onOpenChange={setStatusDialogOpen}>
+
+      {/* Status Dialog */}
+      <Dialog >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Status</DialogTitle>
-            <DialogDescription>{statusMessage}</DialogDescription>
+            <DialogDescription>Status Message</DialogDescription>
           </DialogHeader>
           <Button
             type="button"
             className="w-full bg-blue-500 text-white hover:bg-blue-600 focus:ring-2 focus:ring-blue-400 focus:outline-none mt-4"
-            onClick={() => setStatusDialogOpen(false)}
           >
             Close
           </Button>
         </DialogContent>
       </Dialog>
-          </div>
-        </div>
       </form>
-    </div>
+      </div>
+</Form>
+</div>
   )
 }
