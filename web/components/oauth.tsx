@@ -18,13 +18,13 @@ import {
   InputOTPSlot,
 } from "@/components/ui/input-otp"
 
-// import { apiClient } from "@/utils/apiClient";
+import { apiClient } from "@/utils/apiClient";
 
 import { useSearchParams } from "next/navigation";
-
+import { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
-import { toast } from "sonner"
+// import { toast, Toaster } from "sonner"
 import { z } from "zod"
 import { Button } from "@/components/ui/button"
 import {
@@ -45,24 +45,59 @@ export function OAuthForm({
   ...props
 }: React.ComponentProps<"div">) {
   const searchParams = useSearchParams(); // Access query parameters
-  const userCode = searchParams.get("user_code") || ""; // Get the `user_code` query parameter 
+  const userCode = (searchParams.get("user_code") || "").replace(/[^a-zA-Z0-9]/g, "").toUpperCase(); // Get the `user_code` query parameter 
   const form = useForm<z.infer<typeof FormSchema>>({
     resolver: zodResolver(FormSchema),
     defaultValues: {
       user_code: userCode ? userCode : "",
     },
   })
-  function onSubmit(data: z.infer<typeof FormSchema>) {
-    toast("You submitted the following values", {
-      description: (
-        <pre className="mt-2 w-[320px] rounded-md bg-neutral-950 p-4">
-          <code className="text-white">{JSON.stringify(data, null, 2)}</code>
-        </pre>
-      ),
-    })
-    console.log("Form submitted with data:", data);
+
+  const [statusDialogOpen, setStatusDialogOpen] = useState(false); // State to control the status dialog
+const [dialogDescription, setDialogDescription] = useState(""); // State to store the dialog description
+const [dialogOpen, setDialogOpen] = useState(false); // State to control the dialog visibility
+
+// Handle form submission
+
+type OAuthResponse = {
+  message?: string; // For success responses
+  error?: string; // For error responses
+  status?: string; // For error responses
+  error_description?: string; // For detailed error descriptions
+};
+  async function onSubmit(data: z.infer<typeof FormSchema>) {
+    // toast("You submitted the following values", {
+    //   description: (
+    //     <pre className="mt-2 w-[320px] rounded-md bg-neutral-950 p-4">
+    //       <code className="text-white">{JSON.stringify(data, null, 2)}</code>
+    //     </pre>
+    //   ),
+    // })
+    setDialogOpen(false);
+    try{
+    const response = await apiClient.post<OAuthResponse>("/api/oauth", data);
+    console.log("API Response:", response);
+    if (response.status === 200) {
+      // Success: Open the dialog and set the message
+      setDialogDescription(`${response.data.status}: ${response.data.message}`);
+    } else {
+      // Error: Open the dialog and set the error message
+      setDialogDescription(`${response.data.error}: ${response.data.error_description}`);
+    }
+
+    setStatusDialogOpen(true); // Open the status dialog
+  } catch (error) {
+    console.error("Error submitting form:", error);
+    setDialogDescription("An unexpected error occurred.");
+    setStatusDialogOpen(true); // Open the status dialog for unexpected errors
   }
+
+  }
+
+
+
   return (
+    
     <div className={cn("flex flex-col gap-6", className)} {...props}>
 
 <Form {...form}>
@@ -106,7 +141,7 @@ export function OAuthForm({
             </FormItem>
           )}
         />
-            <Dialog >
+            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
             <Button type="button" className="w-full mt-6">
               Approve
@@ -128,20 +163,21 @@ export function OAuthForm({
           </Dialog>
 
       {/* Status Dialog */}
-      <Dialog >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Status</DialogTitle>
-            <DialogDescription>Status Message</DialogDescription>
-          </DialogHeader>
-          <Button
-            type="button"
-            className="w-full bg-blue-500 text-white hover:bg-blue-600 focus:ring-2 focus:ring-blue-400 focus:outline-none mt-4"
-          >
-            Close
-          </Button>
-        </DialogContent>
-      </Dialog>
+      <Dialog open={statusDialogOpen} onOpenChange={setStatusDialogOpen}>
+  <DialogContent>
+    <DialogHeader>
+      <DialogTitle>Status</DialogTitle>
+      <DialogDescription>{dialogDescription}</DialogDescription>
+    </DialogHeader>
+    <Button
+      type="button"
+      className="w-full bg-blue-500 text-white hover:bg-blue-600 focus:ring-2 focus:ring-blue-400 focus:outline-none mt-4"
+      onClick={() => setStatusDialogOpen(false)} // Close the dialog
+    >
+      Close
+    </Button>
+  </DialogContent>
+</Dialog>
       </form>
       </div>
 </Form>

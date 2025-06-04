@@ -1,8 +1,14 @@
+type ApiResponse<T> = {
+	status: number;
+	ok: boolean;
+	data: T;
+  };
+
 export const apiClient = {
 	async request<T>(
 	  endpoint: string,
 	  options: RequestInit = {}
-	): Promise<T> {
+	): Promise<ApiResponse<T>> {
 	  const token = document.cookie
 		.split("; ")
 		.find((row) => row.startsWith("jwt="))
@@ -20,12 +26,15 @@ export const apiClient = {
 		headers,
 	  });
   
-	  if (!response.ok) {
-		const error = await response.json();
-		throw new Error(error.message || "An error occurred");
-	  }
-  
-	  return response.json();
+	  const json = await response.json().catch(() => {
+		throw new Error("Failed to parse JSON response");
+	  });
+	  
+	  return {
+		status: response.status, // Include the response status
+		ok: response.ok,         // Include the `ok` status
+		data: json,              // Include the parsed JSON data
+	  };
 	},
   
 	get<T>(endpoint: string, options: RequestInit = {}) {
