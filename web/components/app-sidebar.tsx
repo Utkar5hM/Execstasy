@@ -12,6 +12,7 @@ import {
   IconSearch,
   IconSettings,
   IconUsers,
+  IconUser,
 } from "@tabler/icons-react"
 
 import { NavDocuments } from "@/components/nav-documents"
@@ -116,6 +117,11 @@ const data = {
       name: "Users",
       url: "#",
       icon: IconUsers,
+    },
+    {
+      name: "My Profile",
+      url: "#",
+      icon: IconUser,
     },
   ],
 }

@@ -3,6 +3,7 @@ package instances
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 
 	"github.com/Utkar5hM/Execstasy/api/controllers/authentication"
@@ -11,8 +12,26 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+type Instance struct {
+	ID          int    `db:"id"`
+	Name        string `db:"name"`
+	HostAddress string `db:"host_address"`
+	Status      string `db:"status"`
+	CreatedBy   string `db:"created_by"`
+}
+
+// id, name, host_address, status, created_by
 func (h *instanceHandler) getInstances(c echo.Context) error {
-	sql, _, _ := goqu.From("instances").Select("*").ToSQL()
+	sql, _, _ := goqu.From("instances").Join(
+		goqu.T("users"),
+		goqu.On(goqu.Ex{"instances.created_by": goqu.I("users.id")}),
+	).Select(
+		"instances.id",
+		"instances.name",
+		"instances.host_address",
+		"instances.status",
+		goqu.I("users.username").As("created_by"),
+	).ToSQL()
 	rows, err := h.DB.Query(context.Background(), sql)
 	if err != nil {
 		return c.JSON(400, echo.Map{
@@ -21,14 +40,11 @@ func (h *instanceHandler) getInstances(c echo.Context) error {
 	}
 	defer rows.Close()
 
-	var instances []map[string]interface{}
+	var instances []Instance
 	for rows.Next() {
-		var instance map[string]interface{}
-		err := rows.Scan(&instance)
-		if err != nil {
-			return c.JSON(400, echo.Map{
-				"error": "Failed to scan instance: " + err.Error(),
-			})
+		var instance Instance
+		if err := rows.Scan(&instance.ID, &instance.Name, &instance.HostAddress, &instance.Status, &instance.CreatedBy); err != nil {
+			log.Fatalf("Failed to scan instance: %v", err)
 		}
 		instances = append(instances, instance)
 	}
