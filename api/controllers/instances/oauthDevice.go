@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"fmt"
 	"math/big"
+	"net/http"
 	"strconv"
 	"strings"
 	"time"
@@ -190,8 +191,16 @@ func (h *instanceHandler) token(c echo.Context) error {
 	})
 }
 
+type UserCode struct {
+	Code string `json:"user_code"`
+}
+
 func (h *instanceHandler) VerifyUserCode(c echo.Context) error {
-	userCode := c.FormValue("user_code")
+	userCodeStruct := new(UserCode)
+	if err := c.Bind(userCodeStruct); err != nil {
+		return c.String(http.StatusBadRequest, "bad request")
+	}
+	userCode := userCodeStruct.Code
 	value, err := h.RDB.HGetAll(context.Background(), userCode).Result()
 	if err != nil {
 		return c.JSON(400, echo.Map{
