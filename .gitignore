@@ -29,7 +29,8 @@ api/views/*.txt
 api/.env
 
 # env file
-.env
+db.env
+app.env
 
 # Editor/IDE
 # .idea/
@@ -41,3 +42,5 @@ web/node_modules/
 web/.next/
 web/.swc/
 web/.*.env
+
+db_data

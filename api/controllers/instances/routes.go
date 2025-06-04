@@ -20,7 +20,6 @@ func UseOAuthServerSubroute(g *echo.Group, db *pgxpool.Pool, rdb *redis.Client, 
 	g.POST("/token", h.token)
 	verify := g.Group("")
 	verify.Use(authentication.IsLoggedIn(cfg.JWT_SECRET))
-	verify.GET("", h.VerificationPage)
 	verify.POST("", h.VerifyUserCode)
 }
 

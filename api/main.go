@@ -9,8 +9,6 @@ import (
 	"github.com/Utkar5hM/Execstasy/api/controllers/authentication"
 	"github.com/Utkar5hM/Execstasy/api/controllers/instances"
 	"github.com/Utkar5hM/Execstasy/api/utils/config"
-	"github.com/Utkar5hM/Execstasy/api/utils/render"
-	"github.com/Utkar5hM/Execstasy/api/views"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/labstack/echo/v4"
@@ -63,30 +61,15 @@ func main() {
 	e.Pre(middleware.MethodOverride())
 
 	// e.Use(middleware.Secure())
-
-	e.GET("/", func(c echo.Context) error {
-		return render.Render(c, http.StatusOK, views.Index())
-	})
-
-	e.GET("/view", func(c echo.Context) error {
-		return render.Render(c, http.StatusOK, views.ViewPlaylist())
-	})
-	authGroup := e.Group("/users")
+	r := e.Group("/api")
+	authGroup := r.Group("/users")
 	authentication.UseSubroute(authGroup, dbpool, cfg)
 
-	instanceGroup := e.Group("/instances")
+	instanceGroup := r.Group("/instances")
 	instances.UseSubroute(instanceGroup, dbpool, rdb, cfg)
-	OAuthServerGroup := e.Group("/oauth")
+	OAuthServerGroup := r.Group("/oauth")
 	instances.UseOAuthServerSubroute(OAuthServerGroup, dbpool, rdb, cfg)
 	e.Static("/static/", "static")
-	// Restricted group
-	r := e.Group("/restricted")
-
-	// Configure middleware with the custom claims type
-	r.Use(authentication.IsLoggedIn(cfg.JWT_SECRET))
-
-	// r.Use(echojwt.WithConfig(config))
-	r.GET("", restricted)
 	e.Logger.Fatal(e.Start(":4000"))
 
 }

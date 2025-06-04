@@ -3,17 +3,12 @@
 import * as React from "react"
 import {
   IconCamera,
-  IconChartBar,
+  IconUserCheck,
   IconDeviceLaptop,
-  IconDatabase,
   IconFileAi,
   IconFileDescription,
-  IconFileWord,
-  IconFolder,
   IconHelp,
   IconTerminal2,
-  IconListDetails,
-  IconReport,
   IconSearch,
   IconSettings,
   IconUsers,
@@ -35,35 +30,15 @@ import {
 
 const data = {
   user: {
-    name: "shadcn",
-    email: "m@example.com",
+    name: "utkar5hm",
+    email: "utkarshrm568@gmail.com",
     avatar: "/avatars/shadcn.jpg",
   },
   navMain: [
     {
       title: "Instances",
-      url: "#",
+      url: "/instances",
       icon: IconDeviceLaptop,
-    },
-    {
-      title: "Team",
-      url: "#",
-      icon: IconUsers,
-    },
-    {
-      title: "Lifecycle",
-      url: "#",
-      icon: IconListDetails,
-    },
-    {
-      title: "Analytics",
-      url: "#",
-      icon: IconChartBar,
-    },
-    {
-      title: "Projects",
-      url: "#",
-      icon: IconFolder,
     },
   ],
   navClouds: [
@@ -133,19 +108,14 @@ const data = {
   ],
   documents: [
     {
-      name: "Data Library",
+      name: "Roles",
       url: "#",
-      icon: IconDatabase,
+      icon: IconUserCheck,
     },
     {
-      name: "Reports",
+      name: "Users",
       url: "#",
-      icon: IconReport,
-    },
-    {
-      name: "Word Assistant",
-      url: "#",
-      icon: IconFileWord,
+      icon: IconUsers,
     },
   ],
 }

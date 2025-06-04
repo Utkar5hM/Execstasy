@@ -32,7 +32,7 @@ func LoadConfig() (*Config, error) {
 		DATABASE_URL: os.Getenv("DATABASE_URL"),
 		JWT_SECRET:   os.Getenv("JWT_SECRET"),
 		GoogleLoginConfig: oauth2.Config{
-			RedirectURL:  "http://localhost:4000/users/oauth/google/callback",
+			RedirectURL:  "http://localhost:4000/api/users/oauth/google/callback",
 			ClientID:     os.Getenv("GOOGLE_CLIENT_ID"),
 			ClientSecret: os.Getenv("GOOGLE_CLIENT_SECRET"),
 			Scopes: []string{"https://www.googleapis.com/auth/userinfo.email",

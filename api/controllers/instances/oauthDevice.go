@@ -5,14 +5,11 @@ import (
 	"crypto/rand"
 	"fmt"
 	"math/big"
-	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/Utkar5hM/Execstasy/api/controllers/authentication"
-	"github.com/Utkar5hM/Execstasy/api/utils/render"
-	"github.com/Utkar5hM/Execstasy/api/views"
 	"github.com/doug-martin/goqu/v9"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
@@ -191,11 +188,6 @@ func (h *instanceHandler) token(c echo.Context) error {
 		"error":             "invalid_request",
 		"error_description": "Invalid request",
 	})
-}
-
-func (h *instanceHandler) VerificationPage(c echo.Context) error {
-	// userCode := c.QueryParam("user_code")
-	return render.Render(c, http.StatusOK, views.DeviceAuth())
 }
 
 func (h *instanceHandler) VerifyUserCode(c echo.Context) error {

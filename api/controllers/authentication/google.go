@@ -90,7 +90,5 @@ func (h *authHandler) GoogleCallback(c echo.Context) error {
 	cookie.Path = "/"
 	c.SetCookie(cookie)
 
-	return c.JSON(http.StatusOK, echo.Map{
-		"token": tokenString,
-	})
+	return c.Redirect(http.StatusFound, "/")
 }
