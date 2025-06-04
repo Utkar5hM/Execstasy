@@ -4,7 +4,7 @@ import * as React from "react"
 import {
   IconCamera,
   IconChartBar,
-  IconDashboard,
+  IconDeviceLaptop,
   IconDatabase,
   IconFileAi,
   IconFileDescription,
@@ -41,9 +41,14 @@ const data = {
   },
   navMain: [
     {
-      title: "Dashboard",
+      title: "Instances",
       url: "#",
-      icon: IconDashboard,
+      icon: IconDeviceLaptop,
+    },
+    {
+      title: "Team",
+      url: "#",
+      icon: IconUsers,
     },
     {
       title: "Lifecycle",
@@ -59,11 +64,6 @@ const data = {
       title: "Projects",
       url: "#",
       icon: IconFolder,
-    },
-    {
-      title: "Team",
-      url: "#",
-      icon: IconUsers,
     },
   ],
   navClouds: [
