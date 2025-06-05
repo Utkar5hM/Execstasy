@@ -8,6 +8,7 @@ import (
 
 	"github.com/Utkar5hM/Execstasy/api/controllers/authentication"
 	"github.com/Utkar5hM/Execstasy/api/controllers/instances"
+	"github.com/Utkar5hM/Execstasy/api/controllers/roles"
 	"github.com/Utkar5hM/Execstasy/api/utils/config"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -69,6 +70,8 @@ func main() {
 	instances.UseSubroute(instanceGroup, dbpool, rdb, cfg)
 	OAuthServerGroup := r.Group("/oauth")
 	instances.UseOAuthServerSubroute(OAuthServerGroup, dbpool, rdb, cfg)
+	rolesGroup := r.Group("/roles")
+	roles.UseSubroute(rolesGroup, dbpool, cfg)
 	e.Static("/static/", "static")
 	e.Logger.Fatal(e.Start(":4000"))
 
