@@ -28,6 +28,11 @@ func (h *roleHandler) createRole(c echo.Context) error {
 	if err := c.Bind(roleStruct); err != nil {
 		return c.String(http.StatusBadRequest, "bad request")
 	}
+	if roleStruct.Name == "" {
+		return c.JSON(400, echo.Map{
+			"error": "Role name is required",
+		})
+	}
 
 	sql, _, _ := goqu.Insert("roles").Rows(
 		goqu.Record{
@@ -39,7 +44,7 @@ func (h *roleHandler) createRole(c echo.Context) error {
 	_, err := h.DB.Exec(context.Background(), sql)
 	if err != nil {
 		return c.JSON(400, echo.Map{
-			"error": "Failed to create role: " + err.Error(),
+			"error": "Failed to create role: ",
 		})
 	}
 	return c.JSON(http.StatusOK, echo.Map{

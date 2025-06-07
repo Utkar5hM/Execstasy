@@ -14,5 +14,9 @@ func UseSubroute(g *echo.Group, db *pgxpool.Pool, cfg *config.Config) {
 	protectedGroup.Use(h.isAdminMiddleware)
 	protectedGroup.POST("", h.createRole)
 	protectedGroup.DELETE("", h.deleteRole)
+	loggedInGroup := g.Group("")
+	loggedInGroup.Use(authentication.IsLoggedIn(cfg.JWT_SECRET))
+	loggedInGroup.POST("/user", h.AddUserToRole)
+	loggedInGroup.DELETE("/user", h.DeleteUserFromRole)
 	g.GET("", h.getRoles)
 }

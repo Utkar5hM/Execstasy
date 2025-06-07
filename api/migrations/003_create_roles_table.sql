@@ -15,11 +15,11 @@ CREATE TABLE roles (
 );
 
 -- 4. Role Members table
-CREATE TABLE role_members (
+CREATE TABLE role_users (
     role_id INTEGER NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     added_by INTEGER NOT NULL REFERENCES users(id),
-    role role_member_role NOT NULL DEFAULT 'standard',
+    role role_users_role NOT NULL DEFAULT 'standard',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (role_id, user_id)
 );
@@ -49,11 +49,11 @@ $$ LANGUAGE plpgsql;
 
 -- Triggers
 CREATE TRIGGER after_add_member
-AFTER INSERT ON role_members
+AFTER INSERT ON role_users
 FOR EACH ROW
 EXECUTE FUNCTION update_roles_on_member_add();
 
 CREATE TRIGGER after_remove_member
-AFTER DELETE ON role_members
+AFTER DELETE ON role_users
 FOR EACH ROW
 EXECUTE FUNCTION update_roles_on_member_remove();
