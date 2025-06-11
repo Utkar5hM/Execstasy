@@ -27,6 +27,7 @@ func useInstanceRoutes(g *echo.Group, db *pgxpool.Pool, cfg *config.Config) {
 	h := &instanceHandler{config.Handler{DB: db, Config: cfg}}
 	g.POST("", h.createInstance)
 	g.GET("", h.getInstances)
+	g.GET("/:id", h.getInstance)
 	g.Use(h.isAdminOrCreatorMiddleware)
 	g.POST("/host_user/:id", h.addInstanceHostUser)
 	g.DELETE("/host_user/:id", h.deleteInstanceHostUser)

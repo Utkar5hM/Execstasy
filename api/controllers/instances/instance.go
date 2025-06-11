@@ -12,12 +12,21 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+type Instances struct {
+	ID          int    `db:"id"`
+	Name        string `db:"name"`
+	HostAddress string `db:"host_address"`
+	Status      string `db:"status"`
+	CreatedBy   string `db:"created_by"`
+}
+
 type Instance struct {
 	ID          int    `db:"id"`
 	Name        string `db:"name"`
 	HostAddress string `db:"host_address"`
 	Status      string `db:"status"`
 	CreatedBy   string `db:"created_by"`
+	Description string `db:"description"`
 }
 
 // id, name, host_address, status, created_by
@@ -40,9 +49,9 @@ func (h *instanceHandler) getInstances(c echo.Context) error {
 	}
 	defer rows.Close()
 
-	var instances []Instance
+	var instances []Instances
 	for rows.Next() {
-		var instance Instance
+		var instance Instances
 		if err := rows.Scan(&instance.ID, &instance.Name, &instance.HostAddress, &instance.Status, &instance.CreatedBy); err != nil {
 			log.Fatalf("Failed to scan instance: %v", err)
 		}
@@ -133,4 +142,29 @@ func (h *instanceHandler) isAdminOrCreatorMiddleware(next echo.HandlerFunc) echo
 		}
 		return next(c)
 	}
+}
+
+func (h *instanceHandler) getInstance(c echo.Context) error {
+	id := c.Param("id")
+	sql, _, _ := goqu.From("instances").Join(
+		goqu.T("users"),
+		goqu.On(goqu.Ex{"instances.created_by": goqu.I("users.id")}),
+	).Select(
+		goqu.I("instances.id"), // Correctly quote table and column separately
+		goqu.I("instances.name"),
+		goqu.I("instances.host_address"),
+		goqu.I("instances.status"),
+		goqu.I("instances.description"),
+		goqu.I("users.username").As("created_by"),
+	).Where(
+		goqu.I("instances.id").Eq(id), // Correctly quote table and column separately
+	).ToSQL()
+
+	row := h.DB.QueryRow(context.Background(), sql)
+	var instance Instance
+	if err := row.Scan(&instance.ID, &instance.Name, &instance.HostAddress, &instance.Status, &instance.Description, &instance.CreatedBy); err != nil {
+		log.Fatalf("Failed to scan instance: %v", err)
+	}
+
+	return c.JSON(http.StatusOK, instance)
 }

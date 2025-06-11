@@ -33,7 +33,7 @@ const data = {
   user: {
     name: "utkar5hm",
     email: "utkarshrm568@gmail.com",
-    avatar: "/avatars/shadcn.jpg",
+    avatar: "https://gravatar.com/userimage/87626797/43ad4694a7e1b0538f1ed23bb37cb41d.jpeg?size=256",
   },
   navMain: [
     {
