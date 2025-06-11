@@ -58,6 +58,10 @@ func (h *roleHandler) getRoles(c echo.Context) error {
 			goqu.T("users"),
 			goqu.On(goqu.Ex{"roles.created_by": goqu.I("users.id")}),
 		).
+		LeftJoin(
+			goqu.T("role_users"), // Assuming a `role_users` table exists to map roles to users
+			goqu.On(goqu.Ex{"roles.id": goqu.I("role_users.role_id")}),
+		).
 		Select(
 			goqu.I("roles.id"), // Correctly quote table and column separately
 			goqu.I("roles.name"),
@@ -65,6 +69,15 @@ func (h *roleHandler) getRoles(c echo.Context) error {
 			goqu.I("users.username").As("created_by_username"),
 			goqu.L("to_char(roles.updated_at, 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"')").As("updated_at"),
 			goqu.L("to_char(roles.created_at, 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"')").As("created_at"),
+			goqu.L("COUNT(role_users.user_id)").As("role_users"), // Count the number of users in each role
+		).
+		GroupBy(
+			goqu.I("roles.id"),
+			goqu.I("roles.name"),
+			goqu.I("roles.description"),
+			goqu.I("users.username"),
+			goqu.L("to_char(roles.updated_at, 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"')"),
+			goqu.L("to_char(roles.created_at, 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"')"),
 		).
 		Order(goqu.I("roles.id").Asc()). // Correctly quote table and column separately
 		ToSQL()
@@ -81,10 +94,10 @@ func (h *roleHandler) getRoles(c echo.Context) error {
 	// Iterate over rows and populate the slice
 	for rows.Next() {
 		var id int
-		var name, description, createdByUsername, updatedAt, createdAt string
+		var name, description, createdByUsername, updatedAt, createdAt, role_users string
 
 		// Scan the row into variables
-		err := rows.Scan(&id, &name, &description, &createdByUsername, &updatedAt, &createdAt)
+		err := rows.Scan(&id, &name, &description, &createdByUsername, &updatedAt, &createdAt, &role_users)
 		if err != nil {
 			return c.JSON(400, echo.Map{
 				"error": "Failed to scan row: " + err.Error(),
@@ -99,6 +112,7 @@ func (h *roleHandler) getRoles(c echo.Context) error {
 			"created_by":  createdByUsername,
 			"updated_at":  updatedAt,
 			"created_at":  createdAt,
+			"users":       role_users,
 		}
 
 		// Append the map to the slice
@@ -106,9 +120,7 @@ func (h *roleHandler) getRoles(c echo.Context) error {
 	}
 
 	// Return the roles as JSON
-	return c.JSON(http.StatusOK, echo.Map{
-		"roles": roles,
-	})
+	return c.JSON(http.StatusOK, roles)
 }
 
 type DeleteRole struct {

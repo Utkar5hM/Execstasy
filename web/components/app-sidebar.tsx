@@ -110,12 +110,12 @@ const data = {
   documents: [
     {
       name: "Roles",
-      url: "#",
+      url: "/roles",
       icon: IconUserCheck,
     },
     {
       name: "Users",
-      url: "#",
+      url: "/users",
       icon: IconUsers,
     },
     {

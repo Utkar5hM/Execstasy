@@ -13,6 +13,10 @@ func UseSubroute(g *echo.Group, db *pgxpool.Pool, cfg *config.Config) {
 	g.POST("/oauth/google/login", h.GoogleLogin)
 	g.GET("/oauth/google/login", h.GoogleLogin)
 	g.GET("/oauth/google/callback", h.GoogleCallback)
+	protectedGroup := g.Group("")
+	protectedGroup.Use(IsLoggedIn(cfg.JWT_SECRET))
+	protectedGroup.GET("", h.getUsers)
+
 }
 
 func IsAdminMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
