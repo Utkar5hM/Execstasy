@@ -24,15 +24,21 @@ func UseOAuthServerSubroute(g *echo.Group, db *pgxpool.Pool, rdb *redis.Client, 
 }
 
 func useInstanceRoutes(g *echo.Group, db *pgxpool.Pool, cfg *config.Config) {
+
 	h := &instanceHandler{config.Handler{DB: db, Config: cfg}}
 	g.POST("", h.createInstance)
 	g.GET("", h.getInstances)
-	g.GET("/:id", h.getInstance)
+	g.GET("/view/:id", h.getInstance)
+	g.GET("/users/:id", h.getInstanceUsers)
+	g.GET("/roles/:id", h.getInstanceRoles)
+	g.DELETE("/users/:id", h.deleteInstanceUsers)
+	g.POST("/roles/:id", h.addInstanceRoles)
+
 	g.Use(h.isAdminOrCreatorMiddleware)
 	g.POST("/host_user/:id", h.addInstanceHostUser)
 	g.DELETE("/host_user/:id", h.deleteInstanceHostUser)
 	g.PUT("/status/:id", h.setStatusInstance)
-	g.POST("/access/:id", h.addUserInstanceAccess)
-	g.DELETE("/access/:id", h.deleteUserInstanceAccess)
+	g.POST("/users/:id", h.addUserInstanceAccess)
+	g.DELETE("/users/:id", h.deleteUserInstanceAccess)
 	g.DELETE("/:id", h.deleteInstance)
 }
