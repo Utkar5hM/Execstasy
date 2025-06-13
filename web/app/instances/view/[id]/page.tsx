@@ -8,22 +8,87 @@ import {
 } from "lucide-react"
 import { Separator } from "@/components/ui/separator"
 import { Button } from "@/components/ui/button"
-import Link from "next/link"
 import { ExecTable } from "@/components/execTable";
-import {
-  ColumnDef,
-} from "@tanstack/react-table"
 import { Badge } from "@/components/ui/badge"
-import { ArrowUpDown, BadgeCheckIcon, ChevronDown,  MoreHorizontal } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton";
+import * as React from "react"
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+
+
+
+import { zodResolver } from "@hookform/resolvers/zod"
+import { useForm } from "react-hook-form"
+import { toast } from "sonner"
+import { z } from "zod"
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form"
+const FormSchema = z.object({
+  username: z.string().min(2, {
+    message: "Username must be at least 2 characters.",
+  }),
+  host_username: z.string().min(1, {
+    message: "Host Username must be at least 2 characters.",
+  }),
+})
+
 export default function InstanceViewPage() {
 	const params = useParams(); // Access the params object
 	const id = params?.id; // Extract the `id` parameter
   const [instance, setInstance] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [loading2, setLoading2] = useState(true);
+  const [loading3, setLoading3] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [usersData, setUsersData] = useState([]);
   const [rolesData, setRolesData] = useState([]);
+  const [statusDialogOpen, setStatusDialogOpen] = useState(false); // State to control the status dialog
+  const [dialogDescription, setDialogDescription] = useState(""); // State to store the dialog description
+  const [dialogOpen, setDialogOpen] = useState(false); // State to control the dialog visibility
+  const form = useForm<z.infer<typeof FormSchema>>({
+    resolver: zodResolver(FormSchema),
+    defaultValues: {
+      username: "",
+      host_username: "*",
+    },
+  })
+  async function onSubmit(data: z.infer<typeof FormSchema>) {
+    setDialogOpen(false);
+    try{
+    const response = await apiClient.post(`/api/instances/users/${id}`, data);
+    console.log("API Response:", response);
+    if (response.status === 200) {
+      // Success: Open the dialog and set the message
+      setDialogDescription(`${response.data.status}: ${response.data.message}`);
+    } else {
+      // Error: Open the dialog and set the error message
+      setDialogDescription(`${response.data.error}: ${response.data.error_description}`);
+    }
+
+    setStatusDialogOpen(true); // Open the status dialog
+  } catch (error) {
+    console.error("Error submitting form:", error);
+    setDialogDescription("An unexpected error occurred.");
+    setStatusDialogOpen(true); // Open the status dialog for unexpected errors
+  }
+  }
   useEffect(() => {
     async function fetchInstance() {
       try {
@@ -68,7 +133,7 @@ export default function InstanceViewPage() {
         console.error("Failed to fetch instance:", err);
         setError("Failed to load instance.");
       } finally {
-        setLoading(false);
+        setLoading2(false);
       }
     }
 
@@ -84,7 +149,7 @@ export default function InstanceViewPage() {
         console.error("Failed to fetch instance:", err);
         setError("Failed to load instance.");
       } finally {
-        setLoading(false);
+        setLoading3(false);
       }
     }
 
@@ -116,7 +181,8 @@ export default function InstanceViewPage() {
     },
   ];
 
-  if (loading) {
+
+  if (loading || loading2 || loading3) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="flex items-center space-x-4">
@@ -137,6 +203,8 @@ export default function InstanceViewPage() {
       </div>
     );
   }
+
+
   return (<>
     <div className="p-8">
           <h1 className="scroll-m-20 text-4xl font-extrabold tracking-tight text-balance">
@@ -184,7 +252,61 @@ export default function InstanceViewPage() {
         filterColumn="name"
         headerContent={
           <>
-            <Button>Add User</Button>
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogTrigger asChild>
+          <Button >Add User</Button>
+        </DialogTrigger>
+        <DialogContent className="sm:max-w-[425px]">
+        <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+      
+      <DialogHeader>
+            <DialogTitle>Allow User to Access Instance</DialogTitle>
+            <DialogDescription>
+            </DialogDescription>
+          </DialogHeader>
+        <FormField
+          control={form.control}
+          name="username"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Username</FormLabel>
+              <FormControl>
+                <Input placeholder="username" {...field} />
+              </FormControl>
+              <FormDescription>
+                This is the user on this Site.
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="host_username"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Host Username</FormLabel>
+              <FormControl>
+                <Input placeholder="root" {...field} />
+              </FormControl>
+              <FormDescription>
+                This is the user on the host, type "*" to allow all users on the host.
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+          <DialogFooter>
+        <Button type="submit">Add</Button>
+            <DialogClose asChild>
+              <Button variant="outline">Cancel</Button>
+            </DialogClose>
+        </DialogFooter>
+      </form>
+    </Form>
+        </DialogContent>
+    </Dialog>
           </>
         } />
       </div>
@@ -199,6 +321,22 @@ export default function InstanceViewPage() {
           </>
         } />
       </div>
+            {/* Status Dialog */}
+            <Dialog open={statusDialogOpen} onOpenChange={setStatusDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Status</DialogTitle>
+            <DialogDescription>{dialogDescription}</DialogDescription>
+          </DialogHeader>
+          <Button
+            type="button"
+            className="w-full bg-blue-500 text-white hover:bg-blue-600 focus:ring-2 focus:ring-blue-400 focus:outline-none mt-4"
+            onClick={() => setStatusDialogOpen(false)} // Close the dialog
+          >
+            Close
+          </Button>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

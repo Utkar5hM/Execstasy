@@ -16,6 +16,7 @@ func UseSubroute(g *echo.Group, db *pgxpool.Pool, cfg *config.Config) {
 	protectedGroup := g.Group("")
 	protectedGroup.Use(IsLoggedIn(cfg.JWT_SECRET))
 	protectedGroup.GET("", h.getUsers)
+	protectedGroup.GET("/search", h.searchUsers)
 
 }
 
