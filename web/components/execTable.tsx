@@ -68,7 +68,10 @@ export function ExecTable<TData, TValue>({
     <div className="w-full">
       <div className="flex items-center py-4">
         <Input
-          placeholder={`Filter by ${filterColumn}...`}
+          placeholder={`Filter by ${
+            columns.find(
+              (col) => 'accessorKey' in col && col.accessorKey === filterColumn
+          )?.header || filterColumn}...`}
           value={(table.getColumn(filterColumn)?.getFilterValue() as string) ?? ""}
           onChange={(event) =>
             table.getColumn(filterColumn)?.setFilterValue(event.target.value)
@@ -99,7 +102,9 @@ export function ExecTable<TData, TValue>({
                       column.toggleVisibility(!!value)
                     }
                   >
-                    {column.id}
+                      {typeof column.columnDef.header === "string" || typeof column.columnDef.header === "number"
+    ? column.columnDef.header
+    : column.id}
                   </DropdownMenuCheckboxItem>
                 )
               })}

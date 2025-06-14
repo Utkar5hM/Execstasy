@@ -57,7 +57,10 @@ export const apiClient = {
 	  });
 	},
   
-	delete<T>(endpoint: string, options: RequestInit = {}) {
-	  return this.request<T>(endpoint, { ...options, method: "DELETE" });
+	delete<T>(endpoint: string, body: any, options: RequestInit = {}) {
+	  return this.request<T>(endpoint, { ...options, 
+		method: "DELETE",
+		body: JSON.stringify(body),
+	   });
 	},
   };

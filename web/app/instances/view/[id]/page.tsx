@@ -340,7 +340,8 @@ export default function InstanceViewPage() {
                     <form onSubmit={deleteInstance} className="flex flex-col items-center">
             <Button
               type="submit" 
-              className="w-full bg-green-500 text-white hover:bg-green-600 focus:ring-2 focus:ring-green-400 focus:outline-none mt-4"
+              variant="outline"
+              className="w-full focus:ring-2  mt-4"
             >Yes
             </Button>
             </form>

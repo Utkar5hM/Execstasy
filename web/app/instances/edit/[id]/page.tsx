@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
 import { Textarea } from "@/components/ui/textarea"
+import { IconChevronLeft } from '@tabler/icons-react';
 
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button"
@@ -52,7 +53,8 @@ import { useParams } from "next/navigation"
 import { Separator } from "@/components/ui/separator"
 import { ExecTable } from "@/components/execTable"
 import { Skeleton } from "@/components/ui/skeleton"
-
+import { Row } from "@tanstack/react-table"; // adjust import if needed
+import { DefaultStatusResponse } from '@/utils/ResponseTypes';
 export default function InstanceEditPage() {
 
   const params = useParams();
@@ -64,8 +66,10 @@ export default function InstanceEditPage() {
 	const [dialogInstanceID, setdialogInstanceID] = useState(""); // State to store the dialog description
   const [usersData, setUsersData] = useState<{ host_username: string }[]>([]);
   const [userDialogOpen, setUserDialogOpen] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [hostUserstatusDialogOpen, sethostUserstatusDialogOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedHostUsername, setSelectedHostUsername] = useState<string | null>(null);
   const UserFormSchema = z.object({
     host_username: z.string().min(1, {
       message: "Host Username must be at least 2 characters.",
@@ -83,9 +87,78 @@ export default function InstanceEditPage() {
       header: "Host Username",
     },
     {
-      accessorKey: "host_username",
-      header: "",
+      accessorKey: "",
+      header: "Actions",
       enableHiding: false,
+      cell: ({ row }: { row: Row<{ host_username: string }> }) => {
+        const host_username = row.original.host_username;
+      
+        const handleDelete = async (e: React.FormEvent) => {
+          e.preventDefault();
+          try {
+            let response = await apiClient.delete<DefaultStatusResponse>(`/api/instances/hostUsers/${id}`, {
+               host_username: selectedHostUsername 
+              }
+            );
+            if (response.status === 200) {
+              sethostUserstatusDialogOpen(true);
+              setDialogDescription(`${response.data.status}: ${response.data.message}`);
+            } else {
+              sethostUserstatusDialogOpen(true);
+              setDialogDescription(`${response.data.error}: ${response.data.error_description}`);
+            }
+            // Optionally refresh users list or show a dialog
+          } catch (error) {
+            console.error("Failed to delete host user:", error);
+          }
+          setDialogOpen(false);
+          setSelectedHostUsername(null);
+        };
+      
+        return (
+          <>
+            <Dialog
+              open={dialogOpen && selectedHostUsername === host_username}
+              onOpenChange={(open) => {
+                setDialogOpen(open);
+                if (open) setSelectedHostUsername(host_username);
+                else setSelectedHostUsername(null);
+              }}
+            >
+              <DialogTrigger asChild>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  className="hidden h-8 lg:flex w-[80px]"
+                  onClick={() => {
+                    setSelectedHostUsername(host_username);
+                    setDialogOpen(true);
+                  }}
+                >
+                  Delete
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Are you absolutely sure?</DialogTitle>
+                  <DialogDescription>
+                    This action cannot be undone. If you are sure, click the button below to proceed.
+                  </DialogDescription>
+                </DialogHeader>
+                <form className="flex flex-col items-center" onSubmit={handleDelete}>
+                  <Button
+                    type="submit"
+                    variant="outline"
+                    className="w-full focus:ring-2 mt-4"
+                  >
+                    Yes
+                  </Button>
+                </form>
+              </DialogContent>
+            </Dialog>
+          </>
+        );
+      }
     }
   ];
 	const form = useForm<z.infer<typeof formSchema>>({
@@ -138,7 +211,7 @@ export default function InstanceEditPage() {
       async function onSubmitUser(data: z.infer<typeof UserFormSchema>) {
         setUserDialogOpen(false);
         try{
-        const response = await apiClient.post(`/api/instances/hostUsers/${id}`, data);
+        const response = await apiClient.post<DefaultStatusResponse>(`/api/instances/hostUsers/${id}`, data);
         console.log("API Response:", response);
         if (response.status === 200) {
           // Success: Open the dialog and set the message
@@ -148,11 +221,11 @@ export default function InstanceEditPage() {
           setDialogDescription(`${response.data.error}: ${response.data.error_description}`);
         }
     
-        setStatusDialogOpen(true); // Open the status dialog
+        sethostUserstatusDialogOpen(true); // Open the status dialog
       } catch (error) {
         console.error("Error submitting form:", error);
         setDialogDescription("An unexpected error occurred.");
-        setStatusDialogOpen(true); // Open the status dialog for unexpected errors
+        sethostUserstatusDialogOpen(true); // Open the status dialog for unexpected errors
       }
       }
 	  async function onSubmit(values: z.infer<typeof formSchema>) {
@@ -193,8 +266,13 @@ export default function InstanceEditPage() {
       }
   return (
 	<>
-	<div className="p-8">
+	<div className="p-8"><div className="flex items-baseline gap-x-4 pb-6">
 	  <h1 className="text-2xl font-bold pb-6">Edit Instance</h1>
+<Link className="" href={`/instances/view/${id}`}>
+<Button variant="link"><IconChevronLeft stroke={2} />
+Go Back to Instance</Button>
+</Link>
+</div>
 	  <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
         <FormField
@@ -328,10 +406,10 @@ export default function InstanceEditPage() {
   </DialogContent>
 </Dialog>
 <div className="px-8">
-      <h1 className="text-2xl font-bold mb-4">Users</h1>
+      <h1 className="text-2xl font-bold mb-4">Host Users</h1>
       <ExecTable data={usersData}
         columns={Userscolumns}
-        filterColumn="name"
+        filterColumn="host_username"
         headerContent={
           <>
           <Dialog open={userDialogOpen} onOpenChange={setUserDialogOpen}>
@@ -376,6 +454,33 @@ export default function InstanceEditPage() {
           </>
         } />
       </div>
+      <Dialog open={hostUserstatusDialogOpen}   onOpenChange={sethostUserstatusDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Status2</DialogTitle>
+            <DialogDescription>{dialogDescription}</DialogDescription>
+          </DialogHeader>
+
+          <div className="flex w-full gap-4 mt-6">
+				<Link className="w-1/2" href={`/instances/view/${id}`}>
+              <Button
+                type="button"
+                className="w-full bg-blue-500 text-white hover:bg-blue-600 focus:ring-2 focus:ring-blue-400 focus:outline-none"
+                // onClick={...} // Add your view instance handler here
+              >
+                View Instance
+              </Button>
+			  </Link>
+              <Button
+                type="button"
+                className="w-1/2 text-white focus:ring-2 focus:outline-none bg-gray-500 hover:bg-gray-600"
+                onClick={() => sethostUserstatusDialogOpen(false)}
+              >
+                Close
+              </Button>
+            </div>
+        </DialogContent>
+      </Dialog>
 	  </>
   );
 }

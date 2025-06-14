@@ -72,7 +72,8 @@ func (h *instanceHandler) deleteInstanceHostUser(c echo.Context) error {
 		return c.JSON(400, helper.ErrorMessage("Failed to delete host user: ", err))
 	}
 	return c.JSON(200, echo.Map{
-		"status": "success",
+		"status":  "success",
+		"message": "Successfully deleted host user",
 	})
 }
 
