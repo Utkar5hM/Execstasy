@@ -89,7 +89,7 @@ func (h *roleHandler) getRoles(c echo.Context) error {
 	}
 	defer rows.Close()
 
-	var roles []map[string]interface{}
+	var roles []map[string]interface{} = make([]map[string]interface{}, 0)
 
 	// Iterate over rows and populate the slice
 	for rows.Next() {
