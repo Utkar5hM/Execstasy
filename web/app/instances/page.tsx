@@ -10,6 +10,7 @@ import { apiClient } from "@/utils/apiClient";
 import { Button } from "@/components/ui/button";
 import { IconDeviceLaptop } from "@tabler/icons-react";
 import { Skeleton } from "@/components/ui/skeleton"
+import Link from "next/link";
 
 export default function TaskPage() {
   const [tasks, setTasks] = useState<z.infer<typeof taskSchema>[]>([]);
@@ -68,9 +69,11 @@ export default function TaskPage() {
           <h2 className="text-2xl font-bold tracking-tight">Instances</h2>
         </div>
         <div className="flex items-center space-x-2">
+          <Link href="/instances/add">
         <Button size="sm">
-      <IconDeviceLaptop /> Create Instance
+      <IconDeviceLaptop /> Add Instance
     </Button>
+    </Link>
         </div>
       </div>
       <DataTable data={tasks} columns={columns} />

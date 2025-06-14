@@ -1,6 +1,6 @@
 "use client"
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { apiClient } from "@/utils/apiClient";
 import {
   CheckCircle,
@@ -23,13 +23,11 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 
 
 
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
-import { toast } from "sonner"
 import { z } from "zod"
 import {
   Form,
@@ -40,7 +38,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form"
-const FormSchema = z.object({
+const UserFormSchema = z.object({
   username: z.string().min(2, {
     message: "Username must be at least 2 characters.",
   }),
@@ -49,7 +47,36 @@ const FormSchema = z.object({
   }),
 })
 
+
+const RoleFormSchema = z.object({
+  id: z.number().min(1, {
+    message: "Role ID must be at least 1.",
+  }),
+  host_username: z.string().min(1, {
+    message: "Host Username must be at least 2 characters.",
+  }),
+})
+
+import { Check, ChevronsUpDown } from "lucide-react"
+import { cn } from "@/lib/utils"
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import Link from "next/link";
+
+
 export default function InstanceViewPage() {
+  const router = useRouter();
 	const params = useParams(); // Access the params object
 	const id = params?.id; // Extract the `id` parameter
   const [instance, setInstance] = useState<any>(null);
@@ -61,18 +88,74 @@ export default function InstanceViewPage() {
   const [rolesData, setRolesData] = useState([]);
   const [statusDialogOpen, setStatusDialogOpen] = useState(false); // State to control the status dialog
   const [dialogDescription, setDialogDescription] = useState(""); // State to store the dialog description
-  const [dialogOpen, setDialogOpen] = useState(false); // State to control the dialog visibility
-  const form = useForm<z.infer<typeof FormSchema>>({
-    resolver: zodResolver(FormSchema),
+  const [open, setOpen] = React.useState(false)
+  const [rolesFetched, setRolesFetched] = useState<{ value: string; label: string }[]>([]);
+  const [userDialogOpen, setUserDialogOpen] = useState(false);
+  const [roleDialogOpen, setRoleDialogOpen] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [instanceDeleted, setInstanceDeleted] = useState(false); // State to track if the instance was deleted
+  useEffect(() => {
+    async function fetchRoles() {
+      try {
+        const response = await apiClient.get("/api/roles");
+        // Transform the API data to { value, label }
+        const roles = (response.data).map((role: any) => ({
+          value: String(role.id),
+          label: role.name,
+        }));
+        setRolesFetched(roles);
+      } catch (err) {
+        setRolesFetched([]);
+      }
+    }
+    fetchRoles();
+  }, []);
+  const formUser = useForm<z.infer<typeof UserFormSchema>>({
+    resolver: zodResolver(UserFormSchema),
     defaultValues: {
       username: "",
       host_username: "*",
     },
   })
-  async function onSubmit(data: z.infer<typeof FormSchema>) {
-    setDialogOpen(false);
+  const formRole = useForm<z.infer<typeof RoleFormSchema>>({
+    resolver: zodResolver(RoleFormSchema),
+    defaultValues: {
+      id: 0,
+      host_username: "*",
+    },
+  })
+
+  async function onSubmitUser(data: z.infer<typeof UserFormSchema>) {
+    setUserDialogOpen(false);
     try{
     const response = await apiClient.post(`/api/instances/users/${id}`, data);
+    console.log("API Response:", response);
+    if (response.status === 200) {
+      // Success: Open the dialog and set the message
+      setDialogDescription(`${response.data.status}: ${response.data.message}`);
+    } else {
+      // Error: Open the dialog and set the error message
+      setDialogDescription(`${response.data.error}: ${response.data.error_description}`);
+    }
+
+    setStatusDialogOpen(true); // Open the status dialog
+  } catch (error) {
+    console.error("Error submitting form:", error);
+    setDialogDescription("An unexpected error occurred.");
+    setStatusDialogOpen(true); // Open the status dialog for unexpected errors
+  }
+  }
+  useEffect(() => {
+    if (!statusDialogOpen && instanceDeleted) {
+      setTimeout(() => {
+        router.push("/instances");
+      }, 0);
+    }
+  }, [statusDialogOpen, instanceDeleted]);
+  async function onSubmitRole(data: z.infer<typeof RoleFormSchema>) {
+    setRoleDialogOpen(false);
+    try{
+    const response = await apiClient.post(`/api/instances/roles/${id}`, data);
     console.log("API Response:", response);
     if (response.status === 200) {
       // Success: Open the dialog and set the message
@@ -105,25 +188,23 @@ export default function InstanceViewPage() {
     fetchInstance();
   }, [id]);
 
-  const data = [
-    { id: 1, name: "John Doe", email: "john@example.com", role: "admin" },
-    { id: 2, name: "Jane Smith", email: "jane@example.com", role: "user" },
-  ];
-  
-  const columns = [
-    {
-      accessorKey: "name",
-      header: "Name",
-    },
-    {
-      accessorKey: "email",
-      header: "Email",
-    },
-    {
-      accessorKey: "role",
-      header: "Role",
-    },
-  ];
+  async function deleteInstance(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    try {
+      const response = await apiClient.delete(`/api/instances/${id}`);
+      if (response.status === 200) {
+        setDialogDescription("Instance deleted successfully.");
+        setInstanceDeleted(true); // Set instanceDeleted to true
+      } else {
+        setDialogDescription("Failed to delete instance.");
+      }
+    } catch (error) {
+      setDialogDescription("An unexpected error occurred while deleting the instance.");
+    } finally {
+      setDialogOpen(false);
+      setStatusDialogOpen(true); // Optionally show a status dialog
+    }
+  }
   useEffect(() => {
     async function fetchInstance() {
       try {
@@ -229,19 +310,42 @@ export default function InstanceViewPage() {
     </span>
   )}
 </p>
+      <p className="pt-4 flex items-center space-x-2"><strong>Host Users:&nbsp;</strong> {instance.HostUsers && instance.HostUsers.join(", ")}</p>
       <p className="pt-4 flex items-center space-x-2"><strong>Created By:&nbsp;</strong> {instance.CreatedBy}</p>
       <p className="pt-4 flex items-center space-x-2">
+<Link href={`/instances/edit/${id}`}>
 <Button
         size="sm"
         className="hidden h-8 lg:flex w-[80px]"
       >Edit
       </Button>
-      <Button
-        variant="destructive"
-        size="sm"
-        className="hidden h-8 lg:flex w-[80px]"
-      >Delete
-      </Button>
+      </Link>
+                  <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                  <DialogTrigger asChild>
+
+                  <Button
+                variant="destructive"
+                size="sm"
+                className="hidden h-8 lg:flex w-[80px]"
+              >Delete
+              </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Are you absolutely sure?</DialogTitle>
+                      <DialogDescription>
+                        This action cannot be undone. If you are sure, click the button below to proceed.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <form onSubmit={deleteInstance} className="flex flex-col items-center">
+            <Button
+              type="submit" 
+              className="w-full bg-green-500 text-white hover:bg-green-600 focus:ring-2 focus:ring-green-400 focus:outline-none mt-4"
+            >Yes
+            </Button>
+            </form>
+                  </DialogContent>
+                </Dialog>
       </p>
       <Separator className="my-6" />
     </div>
@@ -252,13 +356,13 @@ export default function InstanceViewPage() {
         filterColumn="name"
         headerContent={
           <>
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <Dialog open={userDialogOpen} onOpenChange={setUserDialogOpen}>
         <DialogTrigger asChild>
           <Button >Add User</Button>
         </DialogTrigger>
         <DialogContent className="sm:max-w-[425px]">
-        <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <Form {...formUser}>
+      <form onSubmit={formUser.handleSubmit(onSubmitUser)} className="space-y-6">
       
       <DialogHeader>
             <DialogTitle>Allow User to Access Instance</DialogTitle>
@@ -266,7 +370,7 @@ export default function InstanceViewPage() {
             </DialogDescription>
           </DialogHeader>
         <FormField
-          control={form.control}
+          control={formUser.control}
           name="username"
           render={({ field }) => (
             <FormItem>
@@ -282,7 +386,7 @@ export default function InstanceViewPage() {
           )}
         />
         <FormField
-          control={form.control}
+          control={formUser.control}
           name="host_username"
           render={({ field }) => (
             <FormItem>
@@ -317,12 +421,106 @@ export default function InstanceViewPage() {
       filterColumn="name" 
         headerContent={
           <>
-            <Button>Add Role</Button>
+          <Dialog open={roleDialogOpen} onOpenChange={setRoleDialogOpen}>
+        <DialogTrigger asChild>
+          <Button >Add Role</Button>
+        </DialogTrigger>
+        <DialogContent className="sm:max-w-[425px]">
+        <Form {...formRole}>
+      <form onSubmit={formRole.handleSubmit(onSubmitRole)} className="space-y-6">
+      
+      <DialogHeader>
+            <DialogTitle>Allow Role to Access Instance</DialogTitle>
+            <DialogDescription>
+            </DialogDescription>
+          </DialogHeader>
+          <FormField
+          control={formRole.control}
+          name="id"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Role</FormLabel>
+              <FormControl>
+                <Popover open={open} onOpenChange={setOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={open}
+                      className="justify-between"
+                    >
+                      {rolesFetched.find((role) => role.value === String(field.value))?.label || "Select Role..."}
+                      <ChevronsUpDown className="opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="p-0">
+                    <Command>
+                      <CommandInput placeholder="Search Role..." className="h-9" />
+                      <CommandList>
+                        <CommandEmpty>No Role found.</CommandEmpty>
+                        <CommandGroup>
+                          {rolesFetched.map((role) => (
+                            <CommandItem
+                              key={role.value}
+                              value={role.value}
+                              onSelect={() => {
+                                field.onChange(Number(role.value));
+                                setOpen(false);
+                              }}
+                            >
+                              {role.label}
+                              <Check
+                                className={cn(
+                                  "ml-auto",
+                                  String(field.value) === role.value ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </FormControl>
+              <FormDescription>
+                This is the role on this Site.
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={formRole.control}
+          name="host_username"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Host Username</FormLabel>
+              <FormControl>
+                <Input placeholder="root" {...field} />
+              </FormControl>
+              <FormDescription>
+                This is the user on the host, type "*" to allow all users on the host.
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+          <DialogFooter>
+        <Button type="submit">Add</Button>
+            <DialogClose asChild>
+              <Button variant="outline">Cancel</Button>
+            </DialogClose>
+        </DialogFooter>
+      </form>
+    </Form>
+        </DialogContent>
+    </Dialog>
           </>
         } />
       </div>
             {/* Status Dialog */}
-            <Dialog open={statusDialogOpen} onOpenChange={setStatusDialogOpen}>
+            <Dialog open={statusDialogOpen}   onOpenChange={setStatusDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Status</DialogTitle>
