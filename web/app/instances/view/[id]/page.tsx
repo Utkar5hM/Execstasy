@@ -12,6 +12,7 @@ import { ExecTable } from "@/components/execTable";
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton";
 import * as React from "react"
+import { Row } from "@tanstack/react-table";
 import {
   Dialog,
   DialogClose,
@@ -73,6 +74,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import Link from "next/link";
+import { DefaultStatusResponse } from "@/utils/ResponseTypes";
 
 
 export default function InstanceViewPage() {
@@ -93,7 +95,10 @@ export default function InstanceViewPage() {
   const [userDialogOpen, setUserDialogOpen] = useState(false);
   const [roleDialogOpen, setRoleDialogOpen] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [userDeleteDialogOpen, setUserDeleteDialogOpen] = useState(false);
   const [instanceDeleted, setInstanceDeleted] = useState(false); // State to track if the instance was deleted
+  const [deleteUsername, setDeleteUsername] = useState<string | null>(null);
+  const [deleteHostUsername, setDeleteHostUsername] = useState<string | null>(null);
   useEffect(() => {
     async function fetchRoles() {
       try {
@@ -191,7 +196,7 @@ export default function InstanceViewPage() {
   async function deleteInstance(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     try {
-      const response = await apiClient.delete(`/api/instances/${id}`);
+      const response = await apiClient.delete(`/api/instances/${id}`, null);
       if (response.status === 200) {
         setDialogDescription("Instance deleted successfully.");
         setInstanceDeleted(true); // Set instanceDeleted to true
@@ -260,6 +265,90 @@ export default function InstanceViewPage() {
       accessorKey: "host_username",
       header: "Host Username",
     },
+    {
+      accessorKey: "",
+      header: "Actions",
+      enableHiding: false,
+      cell: ({ row }: { row: Row<{ host_username: string, username: string }> }) => {
+        const host_username = row.original.host_username;
+        const username = row.original.username;
+        const handleDelete = async (e: React.FormEvent) => {
+          e.preventDefault();
+          try {
+            let response = await apiClient.delete<DefaultStatusResponse>(`/api/instances/users/${id}`, {
+               host_username: deleteHostUsername,
+               username: deleteUsername,
+              }
+            );
+            if (response.status === 200) {
+              setStatusDialogOpen(true);
+              setDialogDescription(`${response.data.status}: ${response.data.message}`);
+            } else {
+              setStatusDialogOpen(true);
+              setDialogDescription(`${response.data.error}: ${response.data.error_description}`);
+            }
+            // Optionally refresh users list or show a dialog
+          } catch (error) {
+            console.error("Failed to delete host user:", error);
+          }
+          setUserDeleteDialogOpen(false);
+          setDeleteUsername(null);
+          setDeleteHostUsername(null);
+        };
+      
+        return (
+          <>
+            <Dialog
+              open={userDeleteDialogOpen && deleteUsername === username && deleteHostUsername === host_username}
+              onOpenChange={(open) => {
+                setUserDeleteDialogOpen(open);
+                if (open) {
+                  setDeleteUsername(username);
+                  setDeleteHostUsername(host_username);
+                }
+                else {
+                  setDeleteUsername(null);
+                  setDeleteHostUsername(null);
+                }
+              }}
+            >
+              <DialogTrigger asChild>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  className="hidden h-8 lg:flex w-[80px]"
+                  onClick={() => {
+                    setDeleteUsername(username);
+                    setDeleteHostUsername(host_username);
+                    setUserDeleteDialogOpen(true);
+                  }}
+                >
+                  Delete
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Are you absolutely sure?</DialogTitle>
+                  <DialogDescription>
+                    This action cannot be undone. If you are sure, click the button below to proceed.
+                  </DialogDescription>
+                </DialogHeader>
+                <form className="flex flex-col items-center" onSubmit={handleDelete}>
+                  <Button
+                    type="submit"
+                    variant="outline"
+                    className="w-full focus:ring-2 mt-4"
+                  >
+                    Yes
+                  </Button>
+                </form>
+              </DialogContent>
+            </Dialog>
+          </>
+        );
+      }
+    }
+    
   ];
 
 

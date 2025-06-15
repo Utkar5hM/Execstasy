@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"strconv"
 
 	"github.com/Utkar5hM/Execstasy/api/controllers/authentication"
 	"github.com/Utkar5hM/Execstasy/api/utils/helper"
@@ -268,9 +267,14 @@ func (h *instanceHandler) getInstanceUsers(c echo.Context) error {
 	return c.JSON(http.StatusOK, users)
 }
 
+type InstanceUsernameStruct struct {
+	Username     string `json:"username"`      // Match the path parameter name
+	HostUsername string `json:"host_username"` // Match the body parameter name
+}
+
 func (h *instanceHandler) deleteInstanceUsers(c echo.Context) error {
 	var instance ParamsIDStruct
-	var user ParamsIDStruct
+	var user InstanceUsernameStruct
 	err := (&echo.DefaultBinder{}).BindPathParams(c, &instance)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{
@@ -284,12 +288,62 @@ func (h *instanceHandler) deleteInstanceUsers(c echo.Context) error {
 			"error": "Invalid body parameters",
 		})
 	}
-	// sql, _, _ := goqu.From("instance_users").Where(
-	// 	goqu.Ex{"instance_id": instance.ID, "user_id": user.ID},
-	// ).Delete().ToSQL()
+	if user.Username == "" || user.HostUsername == "" {
+		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("Username and host username are required", nil))
+	}
+	// Check if the user exists in the users table
+	sql, _, _ := goqu.From("users").Where(
+		goqu.Ex{"username": user.Username},
+	).Select(goqu.COUNT("*")).ToSQL()
+	var count int64
+	err = h.DB.QueryRow(context.Background(), sql).Scan(&count)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, helper.ErrorMessage("Failed to check existing user: ", err))
+	}
+	if count == 0 {
+		return c.JSON(http.StatusBadRequest, echo.Map{
+			"error":             "User does not exist",
+			"error_description": fmt.Sprintf("User with username %s does not exist", user.Username),
+		})
+	}
+	// Check if the user is associated with the instance
+	sql, _, _ = goqu.From("instance_users").Where(
+		goqu.Ex{"instance_id": instance.ID, "user_id": goqu.I("users.id"), "instance_host_username": user.HostUsername},
+	).Join(
+		goqu.T("users"),
+		goqu.On(goqu.Ex{"instance_users.user_id": goqu.I("users.id")}),
+	).Select(goqu.COUNT("*")).ToSQL()
+	var userCount int64
+	err = h.DB.QueryRow(context.Background(), sql).Scan(&userCount)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, helper.ErrorMessage("Failed to check existing instance user: ", err))
+	}
+	if userCount == 0 {
+		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("User is not associated with the instance", nil))
+	}
+	sql, _, _ = goqu.From("users").
+		Where(goqu.Ex{"username": user.Username}).
+		Select("id").
+		ToSQL()
+	var userID int64
+	err = h.DB.QueryRow(context.Background(), sql).Scan(&userID)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, helper.ErrorMessage("Failed to get user ID: ", err))
+	}
+	sql, _, _ = goqu.Delete("instance_users").
+		Where(goqu.Ex{
+			"instance_id":            instance.ID,
+			"user_id":                userID,
+			"instance_host_username": user.HostUsername,
+		}).
+		ToSQL()
+	_, err = h.DB.Exec(context.Background(), sql)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, helper.ErrorMessage("Failed to delete instance user: ", err))
+	}
 	return c.JSON(http.StatusOK, echo.Map{
-		"message":  "Successfully deleted instance user: " + strconv.FormatUint(user.ID, 10),
-		"instance": instance.ID,
+		"message": "Successfully deleted instance user.",
+		"status":  "success",
 	})
 }
 
