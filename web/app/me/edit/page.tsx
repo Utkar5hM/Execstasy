@@ -23,18 +23,18 @@ const formSchema = z.object({
   }).max(255,{
 	message: "Name must be at most 255 characters.",
   }),
-  Description: z.string(),
+  username: z.string().min(2, {
+    message: "Name must be at least 2 characters.",
+  }).max(255,{
+	message: "Name must be at most 255 characters.",
+  }),
 })
 import { apiClient } from "@/utils/apiClient";
 import { Dialog, DialogContent, DialogHeader } from "@/components/ui/dialog"
 import { DialogDescription, DialogTitle } from "@radix-ui/react-dialog"
 import Link from "next/link"
-import { useParams } from "next/navigation"
 import { Skeleton } from "@/components/ui/skeleton"
-export default function RoleEditPage() {
-
-  const params = useParams();
-  const id = params?.id;
+export default function InstanceEditPage() {
 	const [statusDialogOpen, setStatusDialogOpen] = useState(false); // State to control the status dialog
 	const [dialogDescription, setDialogDescription] = useState(""); // State to store the dialog description
 	const [dialogStatus, setDialogStatus] = useState<"success" | "error" | null>(null);
@@ -44,22 +44,22 @@ export default function RoleEditPage() {
 		resolver: zodResolver(formSchema),
 		defaultValues: {
 			name: "",
-			Description: "",
+			username: "",
 		},
 	  })
     type InstanceViewResponse = {
-      Name: string;
-      Description: string;
+      name: string;
+      username: string;
     };
     useEffect(() => {
       async function fetchInstance() {
         try {
-          const response = await apiClient.get(`/api/roles/view/${id}`);
+          const response = await apiClient.get(`/api/users/me`);
           if (response.status === 200) {
             const data = response.data as InstanceViewResponse;
             form.reset({
-              name: data.Name || "",
-              Description: data.Description || ""
+              name: data.name || "",
+              username: data.username || ""
             });
             setLoading(false)
           }
@@ -67,17 +67,17 @@ export default function RoleEditPage() {
           // Optionally handle error
         }
       }
-      if (id) fetchInstance();
+      fetchInstance();
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [id]);
-    type RoleResponse = {
+    }, []);
+    type ProfileResponse = {
       message: string;
       error_description?: string;
     };
 	  async function onSubmit(values: z.infer<typeof formSchema>) {
 		try {
-		  const response = await apiClient.put(`/api/roles/edit/${id}`, values);
-      const data = response.data as RoleResponse;
+		  const response = await apiClient.put(`/api/users/me`, values);
+      const data = response.data as ProfileResponse;
 		  if (response.status === 200) {
 		    setDialogStatus("success");
 		    setDialogDescription(data.message);
@@ -92,7 +92,6 @@ export default function RoleEditPage() {
 		  setStatusDialogOpen(true);
 		}
 	  }
-
       if (loading ) {
         return (
           <div className="flex h-screen items-center justify-center">
@@ -110,9 +109,9 @@ export default function RoleEditPage() {
 	<>
 	<div className="p-8"><div className="flex items-baseline gap-x-4 pb-6">
 	  <h1 className="text-2xl font-bold pb-6">Edit Role</h1>
-<Link className="" href={`/roles/view/${id}`}>
+<Link className="" href={`/me`}>
 <Button variant="link"><IconChevronLeft stroke={2} />
-Go Back to Role</Button>
+Go Back to Profile</Button>
 </Link>
 </div>
 	  <Form {...form}>
@@ -130,18 +129,14 @@ Go Back to Role</Button>
             </FormItem>
           )}
         />
-		<FormField
+        <FormField
           control={form.control}
-          name="Description"
+          name="username"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Description</FormLabel>
+              <FormLabel>Username</FormLabel>
               <FormControl>
-                <Textarea
-                  placeholder="Provide a brief description of the role and its responsibilities"
-                  className="resize-none"
-                  {...field}
-                />
+                <Input placeholder="Your username" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -160,13 +155,13 @@ Go Back to Role</Button>
           <div>
             <div className="mb-4">{dialogDescription}</div>
             <div className="flex w-full gap-4 mt-6">
-				<Link className="w-1/2" href={`/roles/view/${id}`}>
+				<Link className="w-1/2" href={`/me`}>
               <Button
                 type="button"
                 className="w-full bg-blue-500 text-white hover:bg-blue-600 focus:ring-2 focus:ring-blue-400 focus:outline-none"
                 // onClick={...} // Add your view instance handler here
               >
-                View Role
+                View Profile
               </Button>
 			  </Link>
               <Button

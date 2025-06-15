@@ -17,7 +17,8 @@ func UseSubroute(g *echo.Group, db *pgxpool.Pool, cfg *config.Config) {
 	protectedGroup.Use(IsLoggedIn(cfg.JWT_SECRET))
 	protectedGroup.GET("", h.getUsers)
 	protectedGroup.GET("/search", h.searchUsers)
-
+	protectedGroup.GET("/me", h.getMe)
+	protectedGroup.PUT("/me", h.updateMe)
 }
 
 func IsAdminMiddleware(next echo.HandlerFunc) echo.HandlerFunc {

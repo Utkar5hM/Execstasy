@@ -7,10 +7,8 @@ import {
   IconDeviceLaptop,
   IconFileAi,
   IconFileDescription,
-  IconHelp,
   IconTerminal2,
-  IconSearch,
-  IconSettings,
+  IconPackage,
   IconUsers,
   IconUser,
 } from "@tabler/icons-react"
@@ -92,19 +90,9 @@ const data = {
   ],
   navSecondary: [
     {
-      title: "Settings",
-      url: "#",
-      icon: IconSettings,
-    },
-    {
-      title: "Get Help",
-      url: "#",
-      icon: IconHelp,
-    },
-    {
-      title: "Search",
-      url: "#",
-      icon: IconSearch,
+      title: "Get ExecStasy-PAM",
+      url: "https://github.com/Utkar5hM/execstasy-pam",
+      icon: IconPackage,
     },
   ],
   documents: [
@@ -120,7 +108,7 @@ const data = {
     },
     {
       name: "My Profile",
-      url: "#",
+      url: "/me",
       icon: IconUser,
     },
   ],

@@ -27,6 +27,7 @@ func useInstanceRoutes(g *echo.Group, db *pgxpool.Pool, cfg *config.Config) {
 
 	h := &instanceHandler{config.Handler{DB: db, Config: cfg}}
 	g.GET("", h.getInstances)
+	g.GET("/me", h.getMyInstances)
 	g.GET("/view/:id", h.getInstance)
 	g.POST("", h.createInstance)
 	g.PUT("/edit/:id", h.editInstance)

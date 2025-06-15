@@ -66,6 +66,68 @@ func (h *instanceHandler) getInstances(c echo.Context) error {
 	return c.JSON(http.StatusOK, instances)
 }
 
+func (h *instanceHandler) getMyInstances(c echo.Context) error {
+	user := c.Get("user").(*jwt.Token)
+	claims := user.Claims.(*authentication.JwtCustomClaims)
+	userID := claims.Id
+	// Instances the user has access to
+	// instance_users and also instance_roles as in
+	// for a particular instance, he has access to as an direct allowed user
+	// or as a role user
+	sql, _, _ := goqu.From("instances").
+		Where(
+			goqu.Or(
+				// Condition 1: User is in instance_users
+				goqu.Ex{
+					"instances.id":           goqu.I("instance_users.instance_id"),
+					"instance_users.user_id": userID,
+				},
+				// Condition 2: User is part of a role that the instance allows access to
+				goqu.Ex{
+					"instances.id":           goqu.I("instance_roles.instance_id"),
+					"instance_roles.role_id": goqu.I("role_users.role_id"),
+					"role_users.user_id":     userID,
+				},
+			),
+		).
+		LeftJoin(
+			goqu.T("instance_users"),
+			goqu.On(goqu.Ex{"instances.id": goqu.I("instance_users.instance_id")}),
+		).
+		LeftJoin(
+			goqu.T("instance_roles"),
+			goqu.On(goqu.Ex{"instances.id": goqu.I("instance_roles.instance_id")}),
+		).
+		LeftJoin(
+			goqu.T("role_users"),
+			goqu.On(goqu.Ex{"instance_roles.role_id": goqu.I("role_users.role_id")}),
+		).
+		Select(
+			"instances.id",
+			"instances.name",
+			"instances.host_address",
+			"instances.status",
+			"instances.description",
+		).
+		ToSQL()
+	rows, err := h.DB.Query(context.Background(), sql)
+	if err != nil {
+		return c.JSON(400, helper.ErrorMessage("Failed to fetch instances: ", err))
+	}
+	defer rows.Close()
+
+	var instances []Instances
+	for rows.Next() {
+		var instance Instances
+		if err := rows.Scan(&instance.ID, &instance.Name, &instance.HostAddress, &instance.Status, &instance.CreatedBy); err != nil {
+			return c.JSON(http.StatusInternalServerError, helper.ErrorMessage("Failed to fetch instance", err))
+		}
+		instances = append(instances, instance)
+	}
+
+	return c.JSON(http.StatusOK, instances)
+}
+
 type createInstanceStruct struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`

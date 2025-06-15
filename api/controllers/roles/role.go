@@ -256,3 +256,52 @@ func (h *roleHandler) editRole(c echo.Context) error {
 		"status":  "success",
 	})
 }
+
+func (h *roleHandler) getMyRoles(c echo.Context) error {
+	user := c.Get("user").(*jwt.Token)
+	claims := user.Claims.(*authentication.JwtCustomClaims)
+	sql, _, _ := goqu.From("roles").
+		Join(
+			goqu.T("role_users"),
+			goqu.On(goqu.Ex{"roles.id": goqu.I("role_users.role_id")}),
+		).
+		Where(goqu.Ex{"role_users.user_id": claims.Id}).
+		Select(
+			goqu.I("roles.id"),
+			goqu.I("roles.name"),
+			goqu.I("roles.description"),
+			goqu.L("to_char(roles.created_at, 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"')").As("created_at"),
+			goqu.L("to_char(roles.updated_at, 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"')").As("updated_at"),
+			goqu.I("role_users.role"),
+		).ToSQL()
+
+	rows, err := h.DB.Query(context.Background(), sql)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, helper.ErrorMessage("Failed to fetch roles", err))
+	}
+	defer rows.Close()
+
+	var roles []map[string]interface{} = make([]map[string]interface{}, 0)
+	for rows.Next() {
+		var id int
+		var name, description, createdAt, updatedAt, role string
+
+		err := rows.Scan(&id, &name, &description, &createdAt, &updatedAt, &role)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, helper.ErrorMessage("Failed to scan role", err))
+		}
+
+		roleMap := map[string]interface{}{
+			"id":          id,
+			"name":        name,
+			"description": description,
+			"created_at":  createdAt,
+			"updated_at":  updatedAt,
+			"role":        role,
+		}
+
+		roles = append(roles, roleMap)
+	}
+
+	return c.JSON(http.StatusOK, roles)
+}
