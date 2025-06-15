@@ -12,6 +12,9 @@ import { IconDeviceLaptop } from "@tabler/icons-react";
 import { Skeleton } from "@/components/ui/skeleton"
 import Link from "next/link";
 
+import {decodeJwt} from "@/utils/userToken"
+const decodedToken = decodeJwt();
+
 export default function TaskPage() {
   const [tasks, setTasks] = useState<z.infer<typeof taskSchema>[]>([]);
   const [loading, setLoading] = useState(true);
@@ -68,13 +71,14 @@ export default function TaskPage() {
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Instances</h2>
         </div>
+        {decodedToken?.role === "admin" && (
         <div className="flex items-center space-x-2">
           <Link href="/instances/add">
         <Button size="sm">
       <IconDeviceLaptop /> Add Instance
     </Button>
     </Link>
-        </div>
+        </div>)}
       </div>
       <DataTable data={tasks} columns={columns} />
     </div>

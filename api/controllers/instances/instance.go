@@ -116,7 +116,7 @@ func (h *instanceHandler) getMyInstances(c echo.Context) error {
 	}
 	defer rows.Close()
 
-	var instances []Instances
+	var instances []Instances = []Instances{}
 	for rows.Next() {
 		var instance Instances
 		if err := rows.Scan(&instance.ID, &instance.Name, &instance.HostAddress, &instance.Status, &instance.CreatedBy); err != nil {

@@ -7,7 +7,7 @@ import {
   IconNotification,
   IconUserCircle,
 } from "@tabler/icons-react"
-
+import Link from "next/link";
 import {
   Avatar,
   AvatarFallback,
@@ -34,11 +34,12 @@ export function NavUser({
 }: {
   user: {
     name: string
-    email: string
+    username: string
     avatar: string
   }
 }) {
   const { isMobile } = useSidebar()
+
 
   return (
     <SidebarMenu>
@@ -56,7 +57,7 @@ export function NavUser({
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-medium">{user.name}</span>
                 <span className="text-muted-foreground truncate text-xs">
-                  {user.email}
+                  {user.username}
                 </span>
               </div>
               <IconDotsVertical className="ml-auto size-4" />
@@ -77,31 +78,17 @@ export function NavUser({
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-medium">{user.name}</span>
                   <span className="text-muted-foreground truncate text-xs">
-                    {user.email}
+                    {user.username}
                   </span>
                 </div>
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-              <DropdownMenuItem>
-                <IconUserCircle />
-                Account
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <IconCreditCard />
-                Billing
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <IconNotification />
-                Notifications
-              </DropdownMenuItem>
-            </DropdownMenuGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem>
-              <IconLogout />
+            
+            <Link href="/me/logout">
+            <DropdownMenuItem ><IconLogout />
               Log out
-            </DropdownMenuItem>
+            </DropdownMenuItem></Link>
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>

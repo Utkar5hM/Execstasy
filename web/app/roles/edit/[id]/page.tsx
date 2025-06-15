@@ -31,8 +31,20 @@ import { DialogDescription, DialogTitle } from "@radix-ui/react-dialog"
 import Link from "next/link"
 import { useParams } from "next/navigation"
 import { Skeleton } from "@/components/ui/skeleton"
-export default function RoleEditPage() {
+import { decodeJwt } from "@/utils/userToken";
 
+const decodedToken = decodeJwt();
+export default function RoleEditPage() {
+  if (decodedToken?.role !== "admin") {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold mb-4">Access Denied</h1>
+          <p className="text-gray-600">You do not have permission to view this page.</p>
+        </div>
+      </div>
+    );
+  }
   const params = useParams();
   const id = params?.id;
 	const [statusDialogOpen, setStatusDialogOpen] = useState(false); // State to control the status dialog

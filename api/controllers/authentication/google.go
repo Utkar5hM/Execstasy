@@ -73,6 +73,7 @@ func (h *authHandler) GoogleCallback(c echo.Context) error {
 		sql_fetched_user.Username,
 		sql_fetched_user.Role,
 		sql_fetched_user.Id,
+		sql_fetched_user.Email,
 		jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour * 72)),
 		},

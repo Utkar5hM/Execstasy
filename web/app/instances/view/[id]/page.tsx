@@ -76,7 +76,9 @@ import {
 import Link from "next/link";
 import { DefaultStatusResponse } from "@/utils/ResponseTypes";
 
-
+import {decodeJwt} from "@/utils/userToken"
+import { IconChevronLeft } from "@tabler/icons-react";
+const decodedToken = decodeJwt();
 export default function InstanceViewPage() {
   const router = useRouter();
 	const params = useParams(); // Access the params object
@@ -101,6 +103,9 @@ export default function InstanceViewPage() {
   const [deleteHostUsername, setDeleteHostUsername] = useState<string | null>(null);
   const [deleteRoleID, setDeleteRoleID] = useState<number | null>(null);
   const [roleDeleteDialogOpen, setRoleDeleteDialogOpen] = useState(false);
+
+
+
   useEffect(() => {
     async function fetchRoles() {
       try {
@@ -287,6 +292,7 @@ export default function InstanceViewPage() {
       
         return (
           <>
+          {decodedToken?.role === "admin" && (
             <Dialog
               open={roleDeleteDialogOpen && deleteRoleID === roleId && deleteHostUsername === host_username}
               onOpenChange={(open) => {
@@ -333,6 +339,7 @@ export default function InstanceViewPage() {
                 </form>
               </DialogContent>
             </Dialog>
+      )}
           </>
         );
       }
@@ -385,6 +392,7 @@ export default function InstanceViewPage() {
       
         return (
           <>
+          {decodedToken?.role === "admin" && (
             <Dialog
               open={userDeleteDialogOpen && deleteUsername === username && deleteHostUsername === host_username}
               onOpenChange={(open) => {
@@ -430,7 +438,7 @@ export default function InstanceViewPage() {
                   </Button>
                 </form>
               </DialogContent>
-            </Dialog>
+            </Dialog>)}
           </>
         );
       }
@@ -463,10 +471,14 @@ export default function InstanceViewPage() {
 
 
   return (<>
-    <div className="p-8">
+    <div className="p-8"><div className="flex items-baseline gap-x-4">
           <h1 className="scroll-m-20 text-4xl font-extrabold tracking-tight text-balance">
           {instance.Name}</h1>
-
+          <Link className="" href={`/instances`}>
+<Button variant="link"><IconChevronLeft stroke={2} />
+Go Back to Instances</Button>
+</Link>
+</div>
       <p className="pt-4  text-muted-foreground text-xl">{instance.Description}</p>
       <p className="pt-4 flex items-center space-x-2"><strong>Host Address:</strong>     <code className="bg-muted relative rounded px-[0.3rem] py-[0.2rem] font-mono text-sm font-semibold">
       {instance.HostAddress}
@@ -489,6 +501,8 @@ export default function InstanceViewPage() {
       <p className="pt-4 flex items-center space-x-2"><strong>Host Users:&nbsp;</strong> {instance.HostUsers && instance.HostUsers.join(", ")}</p>
       <p className="pt-4 flex items-center space-x-2"><strong>Client ID:&nbsp;</strong> {instance.ClientID}</p>
       <p className="pt-4 flex items-center space-x-2"><strong>Created By:&nbsp;</strong> {instance.CreatedBy}</p>
+      
+      {decodedToken?.role === "admin" && (
       <p className="pt-4 flex items-center space-x-2">
 <Link href={`/instances/edit/${id}`}>
 <Button
@@ -524,7 +538,7 @@ export default function InstanceViewPage() {
             </form>
                   </DialogContent>
                 </Dialog>
-      </p>
+      </p>)}
       <Separator className="my-6" />
     </div>
     <div className="px-8">
@@ -534,6 +548,7 @@ export default function InstanceViewPage() {
         filterColumn="name"
         headerContent={
           <>
+          {decodedToken?.role === "admin" && (
           <Dialog open={userDialogOpen} onOpenChange={setUserDialogOpen}>
         <DialogTrigger asChild>
           <Button >Add User</Button>
@@ -588,7 +603,7 @@ export default function InstanceViewPage() {
       </form>
     </Form>
         </DialogContent>
-    </Dialog>
+    </Dialog>)}
           </>
         } />
       </div>
@@ -599,6 +614,7 @@ export default function InstanceViewPage() {
       filterColumn="name" 
         headerContent={
           <>
+          {decodedToken?.role === "admin" && (
           <Dialog open={roleDialogOpen} onOpenChange={setRoleDialogOpen}>
         <DialogTrigger asChild>
           <Button >Add Role</Button>
@@ -693,7 +709,7 @@ export default function InstanceViewPage() {
       </form>
     </Form>
         </DialogContent>
-    </Dialog>
+    </Dialog>)}
           </>
         } />
       </div>

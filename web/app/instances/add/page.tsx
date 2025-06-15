@@ -47,8 +47,20 @@ import { CheckCircle, CircleOff } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader } from "@/components/ui/dialog"
 import { DialogDescription, DialogTitle } from "@radix-ui/react-dialog"
 import Link from "next/link"
+import { decodeJwt } from "@/utils/userToken";
 
+const decodedToken = decodeJwt();
 export default function InstanceAddPage() {
+  if (decodedToken?.role !== "admin") {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold mb-4">Access Denied</h1>
+          <p className="text-gray-600">You do not have permission to view this page.</p>
+        </div>
+      </div>
+    );
+  }
 	const [statusDialogOpen, setStatusDialogOpen] = useState(false); // State to control the status dialog
 	const [dialogDescription, setDialogDescription] = useState(""); // State to store the dialog description
 	const [dialogStatus, setDialogStatus] = useState<"success" | "error" | null>(null);

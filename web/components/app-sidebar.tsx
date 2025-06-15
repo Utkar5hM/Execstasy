@@ -12,11 +12,13 @@ import {
   IconUsers,
   IconUser,
 } from "@tabler/icons-react"
+import {jwtDecode} from "jwt-decode";
 
 import { NavDocuments } from "@/components/nav-documents"
 import { NavMain } from "@/components/nav-main"
 import { NavSecondary } from "@/components/nav-secondary"
 import { NavUser } from "@/components/nav-user"
+import CryptoJS from "crypto-js";
 import {
   Sidebar,
   SidebarContent,
@@ -113,8 +115,39 @@ const data = {
     },
   ],
 }
-
+import { useState, useEffect } from "react";
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  const [user, setUser] = useState({
+    name: "PlaceHolder User",
+    username: "PlaceHolder Username",
+    avatar: "",
+  });
+  const generateGravatarUrl = (email: string): string => {
+    const hashedEmail = CryptoJS.MD5(email.trim().toLowerCase()).toString();
+    return `https://www.gravatar.com/avatar/${hashedEmail}`;
+  };
+  useEffect(() => {
+    const fetchUser = async () => {
+      if (typeof document !== "undefined") {
+        const jwt = document.cookie
+          .split("; ")
+          .find((row) => row.startsWith("jwt="))
+          ?.split("=")[1];
+
+        if (jwt) {
+          const decodedToken = jwtDecode(jwt);
+          setUser({
+            name: decodedToken.name || "Default User",
+            username: decodedToken.username || "Default Email",
+            avatar: generateGravatarUrl(decodedToken.email),
+          });
+        }
+      }
+    };
+
+    fetchUser();
+  }, []);
+
   return (
     <Sidebar collapsible="offcanvas" {...props}>
       <SidebarHeader>
@@ -124,7 +157,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               asChild
               className="data-[slot=sidebar-menu-button]:!p-1.5"
             >
-              <a href="#">
+              <a href="/">
                 <IconTerminal2 className="!size-5" />
                 <span className="text-base font-semibold">ExecStasy</span>
               </a>
@@ -138,7 +171,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <NavSecondary items={data.navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={data.user} />
+        <NavUser user={user} />
       </SidebarFooter>
     </Sidebar>
   )

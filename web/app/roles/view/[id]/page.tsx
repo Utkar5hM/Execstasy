@@ -60,7 +60,10 @@ const UserFormSchema = z.object({
 
 import Link from "next/link";
 import { DefaultStatusResponse } from "@/utils/ResponseTypes";
+import { decodeJwt } from "@/utils/userToken";
+import { IconChevronLeft } from "@tabler/icons-react";
 
+const decodedToken = decodeJwt();
 
 export default function RoleViewPage() {
   const router = useRouter();
@@ -297,12 +300,18 @@ export default function RoleViewPage() {
 
 
   return (<>
-    <div className="p-8">
+    <div className="p-8"><div className="flex items-baseline gap-x-4">
           <h1 className="scroll-m-20 text-4xl font-extrabold tracking-tight text-balance">
           {roleInfo.Name}</h1>
+          <Link className="" href={`/roles`}>
+<Button variant="link"><IconChevronLeft stroke={2} />
+Go Back to Roles</Button>
+</Link>
+</div>
       <p className="pt-4  text-muted-foreground text-xl">{roleInfo.Description}</p>
       <p className="pt-4 flex items-center space-x-2"><strong>Created By:&nbsp;</strong> {roleInfo.CreatedBy}</p>
       <p className="pt-4 flex items-center space-x-2"><strong>Last Updated At:&nbsp;</strong> {roleInfo.UpdatedAt}</p>
+      {decodedToken?.role === "admin" && ( 
       <p className="pt-4 flex items-center space-x-2">
 <Link href={`/roles/edit/${id}`}>
 <Button
@@ -339,6 +348,7 @@ export default function RoleViewPage() {
                   </DialogContent>
                 </Dialog>
       </p>
+      )}
       <Separator className="my-6" />
     </div>
     <div className="px-8">

@@ -41,7 +41,7 @@ import { apiClient } from "@/utils/apiClient";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DataTableColumnHeader } from "../instances/components/data-table-column-header";
 
-export type Role = {
+export type User = {
   id: number;
   created_at: string;
   updated_at: string;
@@ -49,10 +49,25 @@ export type Role = {
   description: string;
   name: string;
   users: string;
+  role: string
 };
 import { Badge } from "@/components/ui/badge"
 
-const columns: ColumnDef<Role>[] = [
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DefaultStatusResponse } from "@/utils/ResponseTypes";
+
+import {decodeJwt} from "@/utils/userToken"
+const decodedToken = decodeJwt();
+
+export default function UsersPage() {
+  const [data, setData] = React.useState<User[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
+  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
+  const [statusDialogOpen, setStatusDialogOpen] = React.useState(false);
+  const [dialogDescription, setDialogDescription] = React.useState("");
+
+const columns: ColumnDef<User>[] = [
   {
     accessorKey: "role",
     header: "",
@@ -66,7 +81,7 @@ const columns: ColumnDef<Role>[] = [
     cell: ({ row }) => (
       <div className="flex items-center space-x-2">
         <span>{row.getValue("name")}</span>
-        {row.getValue("role") === "admin" && ( // Check if the role is 'admin'
+        {row.original.role === "admin" && ( // Check if the role is 'admin'
           <Badge
             variant="outline"
             className="rounded-full"
@@ -86,6 +101,42 @@ const columns: ColumnDef<Role>[] = [
     accessorKey: "email",
     header: "Email",
   },
+  {
+    accessorKey: "id",
+    header: "",
+    enableHiding: false,
+    cell: ({ row }) => {
+      const handleRoleChange = async () => {
+        try {
+          const response = await apiClient.put<DefaultStatusResponse>('/api/users/role', {
+            id: row.original.id
+          })
+          if (response.status === 200) {
+            setDialogDescription(`${response.data.status}: ${response.data.message}`);
+          } else {
+            setDialogDescription(`${response.data.error}: ${response.data.error_description}`);
+          }
+        }catch (error) {
+          setDialogDescription("An unexpected error occurred.");
+          setStatusDialogOpen(true);
+        } finally {
+          setStatusDialogOpen(true);
+        }
+      } 
+      if (decodedToken?.role !== "admin" || row.original.id === decodedToken?.id) {
+        return null; // Hide the button if the user is not an admin
+      }
+      return (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleRoleChange}
+          className="ml-auto hidden h-8 lg:flex w-[120px] mr-6"
+        >
+          {row.original.role === "admin" ? "Demote" : "Make Admin"}
+        </Button>)
+    }
+}
 //   {
 //     accessorKey: "id",
 //     header: "",
@@ -102,16 +153,10 @@ const columns: ColumnDef<Role>[] = [
 //     ),
 //   }
 ];
-
-export default function UsersPage() {
-  const [data, setData] = React.useState<Role[]>([]);
-  const [loading, setLoading] = React.useState(true);
-  const [error, setError] = React.useState<string | null>(null);
-  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
   React.useEffect(() => {
     async function fetchUsers() {
       try {
-        const response = await apiClient.get<Role[]>("/api/users");
+        const response = await apiClient.get<User[]>("/api/users");
         setData(response.data); // Update the data state with fetched Users
       } catch (err) {
         console.error("Failed to fetch users:", err);
@@ -152,6 +197,7 @@ if (loading) {
       );
 }
   return (
+    <>
     <div className="p-8">
       <h1 className="text-2xl font-bold">Users</h1>
       <div className="w-full">
@@ -267,5 +313,22 @@ if (loading) {
         </div>
       </div>
     </div>
+{/* Status Dialog */}
+<Dialog open={statusDialogOpen}   onOpenChange={setStatusDialogOpen}>
+<DialogContent>
+  <DialogHeader>
+    <DialogTitle>Status</DialogTitle>
+    <DialogDescription>{dialogDescription}</DialogDescription>
+  </DialogHeader>
+  <Button
+    type="button"
+    className="w-full bg-blue-500 text-white hover:bg-blue-600 focus:ring-2 focus:ring-blue-400 focus:outline-none mt-4"
+    onClick={() => setStatusDialogOpen(false)} // Close the dialog
+  >
+    Close
+  </Button>
+</DialogContent>
+</Dialog> 
+</>    
   );
 }

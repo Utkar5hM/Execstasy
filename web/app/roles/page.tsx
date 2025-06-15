@@ -138,7 +138,9 @@ const columns: ColumnDef<Role>[] = [
   //   },
   // },
 ];
+import { decodeJwt } from "@/utils/userToken";
 
+const decodedToken = decodeJwt();
 export default function RolesPage() {
   const [data, setData] = React.useState<Role[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -195,13 +197,14 @@ if (loading) {
       <div>
           <h2 className="text-2xl font-bold tracking-tight">Roles</h2>
         </div>
+        {decodedToken?.role === "admin" && (
         <div className="flex items-center space-x-2">
           <Link href="/roles/add">
         <Button size="sm">
       <IconUserCheck /> Add Role
     </Button>
     </Link>
-    </div>
+    </div> )}
         </div>
       <div className="w-full">
         <div className="flex items-center py-4">

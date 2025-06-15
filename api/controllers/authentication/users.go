@@ -143,13 +143,13 @@ func (h *authHandler) updateMe(c echo.Context) error {
 				"name":     req.Name,
 			},
 		).Returning(
-		"id", "username", "name", "role",
+		"id", "username", "name", "role", "email",
 	).ToSQL()
 	// Execute the update query
 	row := h.DB.QueryRow(c.Request().Context(), sql)
 	var id uint64
-	var username, name, role string
-	if err := row.Scan(&id, &username, &name, &role); err != nil {
+	var username, name, role, email string
+	if err := row.Scan(&id, &username, &name, &role, &email); err != nil {
 		return c.JSON(500, helper.ErrorMessage("Failed to update user information", err))
 	}
 	// Regenerate JWT Token
@@ -158,6 +158,7 @@ func (h *authHandler) updateMe(c echo.Context) error {
 		username,
 		role,
 		int(id),
+		email,
 		jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour * 72)),
 		},
@@ -177,6 +178,54 @@ func (h *authHandler) updateMe(c echo.Context) error {
 	// Return success message
 	return c.JSON(200, echo.Map{
 		"message": "User information updated successfully",
+		"status":  "success",
+	})
+}
+
+type JSONIDStruct struct {
+	ID uint64 `json:"id"` // Match the path parameter name
+}
+
+func (h *authHandler) updateRole(c echo.Context) error {
+	// Get the user ID from the context
+	user := c.Get("user").(*jwt.Token)
+	claims := user.Claims.(*JwtCustomClaims)
+	var userID JSONIDStruct
+	if err := c.Bind(&userID); err != nil {
+		return c.JSON(400, helper.ErrorMessage("Invalid request body", err))
+	}
+	if userID.ID == 0 {
+		return c.JSON(400, helper.ErrorMessage("User ID cannot be empty", nil))
+	}
+	if userID.ID == uint64(claims.Id) {
+		return c.JSON(400, helper.ErrorMessage("You cannot update your own role", nil))
+	}
+	//  Get the user's current role
+	sql, _, _ := goqu.From("users").
+		Where(goqu.I("id").Eq(userID.ID)).
+		Select("role").ToSQL()
+	row := h.DB.QueryRow(c.Request().Context(), sql)
+	var currentRole string
+	if err := row.Scan(&currentRole); err != nil {
+		return c.JSON(500, helper.ErrorMessage("Failed to fetch user role", err))
+	}
+	var newRole string
+	if currentRole == "admin" {
+		newRole = "user" // If current role is admin, change to user
+	} else {
+		newRole = "admin" // Otherwise, change to admin
+	}
+	sql, _, _ = goqu.Update("users").
+		Where(goqu.I("id").Eq(userID.ID)).
+		Set(goqu.Record{"role": newRole}).ToSQL()
+	// Execute the update query
+	_, err := h.DB.Exec(c.Request().Context(), sql)
+	if err != nil {
+		return c.JSON(500, helper.ErrorMessage("Failed to update user role", err))
+	}
+	// Return success message
+	return c.JSON(200, echo.Map{
+		"message": "User role updated successfully to " + newRole,
 		"status":  "success",
 	})
 }
