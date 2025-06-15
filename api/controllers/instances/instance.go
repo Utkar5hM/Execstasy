@@ -106,7 +106,7 @@ func (h *instanceHandler) createInstance(c echo.Context) error {
 		return c.JSON(400, helper.ErrorMessage("Failed to create instance", err))
 	}
 	return c.JSON(http.StatusOK, echo.Map{
-		"message":   "Successfully created instance",
+		"message":   "Successfully created instance, Please save the client_id somewhere to configure the instance.",
 		"status":    "success",
 		"id":        id,
 		"client_id": clientID,
@@ -172,7 +172,16 @@ func CensorClientID(clientID string) string {
 }
 
 func (h *instanceHandler) getInstance(c echo.Context) error {
-	id := c.Param("id")
+	var instanceID ParamsIDStruct
+
+	// Bind path parameters using DefaultBinder
+	err := (&echo.DefaultBinder{}).BindPathParams(c, &instanceID)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("Invalid path parameters", err))
+	}
+	if instanceID.ID == 0 {
+		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("Instance ID is required", nil))
+	}
 	sql, _, _ := goqu.From("instances").Join(
 		goqu.T("users"),
 		goqu.On(goqu.Ex{"instances.created_by": goqu.I("users.id")}),
@@ -185,7 +194,7 @@ func (h *instanceHandler) getInstance(c echo.Context) error {
 		goqu.I("users.username").As("created_by"),
 		goqu.I("instances.client_id"),
 	).Where(
-		goqu.I("instances.id").Eq(id), // Correctly quote table and column separately
+		goqu.I("instances.id").Eq(instanceID.ID), // Correctly quote table and column separately
 	).ToSQL()
 
 	row := h.DB.QueryRow(context.Background(), sql)
@@ -196,7 +205,7 @@ func (h *instanceHandler) getInstance(c echo.Context) error {
 	instance.ClientID = CensorClientID(instance.ClientID)
 	hostUsersSql, _, _ := goqu.From("instance_host_users").
 		Select("username").
-		Where(goqu.Ex{"instance_id": id}).
+		Where(goqu.Ex{"instance_id": instanceID.ID}).
 		ToSQL()
 	hostUsersRows, err := h.DB.Query(context.Background(), hostUsersSql)
 	if err != nil {
@@ -353,110 +362,9 @@ type InstanceRole struct {
 	HostUsername string `json:"host_username"`
 }
 
-func (h *instanceHandler) getInstanceRoles(c echo.Context) error {
-	var instance ParamsIDStruct
-
-	// Bind path parameters using DefaultBinder
-	err := (&echo.DefaultBinder{}).BindPathParams(c, &instance)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{
-			"error": "Invalid path parameters",
-		})
-	}
-	sql, _, _ := goqu.From("instance_roles").Join(
-		goqu.T("roles"),
-		goqu.On(goqu.Ex{"instance_roles.role_id": goqu.I("roles.id")}),
-	).Select(
-		goqu.I("roles.id"),
-		goqu.I("roles.name"),
-		goqu.I("instance_roles.instance_host_username"),
-	).Where(
-		goqu.I("instance_roles.instance_id").Eq(instance.ID),
-	).ToSQL()
-
-	rows, err := h.DB.Query(context.Background(), sql)
-	if err != nil {
-		return c.JSON(400, echo.Map{
-			"error": "Failed to fetch instance roles: " + err.Error(),
-		})
-	}
-	defer rows.Close()
-
-	var roles []InstanceRole = []InstanceRole{}
-	for rows.Next() {
-		var role InstanceRole
-		if err := rows.Scan(&role.Id, &role.Name, &role.HostUsername); err != nil {
-			log.Fatalf("Failed to scan role: %v", err)
-		}
-		roles = append(roles, role)
-	}
-
-	return c.JSON(http.StatusOK, roles)
-}
-
 type IDUsernameStruct struct {
 	ID       uint64 `json:"id"`            // Match the path parameter name
 	Username string `json:"host_username"` // Match the body parameter name
-}
-
-func (h *instanceHandler) addInstanceRoles(c echo.Context) error {
-	var instance ParamsIDStruct
-	err := (&echo.DefaultBinder{}).BindPathParams(c, &instance)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{
-			"error":             "Invalid path parameters",
-			"error_description": err.Error(),
-		})
-	}
-
-	var role IDUsernameStruct
-	err = c.Bind(&role)
-	if err != nil {
-		return c.String(http.StatusBadRequest, "Invalid request body")
-	}
-	if role.ID == 0 || role.Username == "" {
-		return c.JSON(http.StatusBadRequest, echo.Map{
-			"error":             "Invalid role ID or username",
-			"error_description": "Role ID and username must be provided",
-		})
-	}
-	// check if given instance_role exists, error if do
-	sql, _, err := goqu.From("instance_roles").Where(
-		goqu.Ex{"instance_id": instance.ID, "role_id": role.ID, "instance_host_username": role.Username},
-	).Select(goqu.COUNT("*")).ToSQL()
-	var count int64
-	err = h.DB.QueryRow(context.Background(), sql).Scan(&count)
-	if err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{
-			"error":             "Failed to check existing instance role: ",
-			"error_description": err.Error(),
-		})
-	}
-	if count > 0 {
-		return c.JSON(http.StatusBadRequest, echo.Map{
-			"error":             "Instance role already exists",
-			"error_description": fmt.Sprintf("Instance role with ID %d and username %s already exists", role.ID, role.Username),
-		})
-	}
-	sql, _, _ = goqu.Insert("instance_roles").Rows(
-		goqu.Record{
-			"instance_id":            instance.ID,
-			"role_id":                role.ID,
-			"instance_host_username": role.Username,
-		},
-	).ToSQL()
-	_, err = h.DB.Exec(context.Background(), sql)
-	if err != nil {
-		return c.JSON(400, echo.Map{
-			"error":             "Failed to add instance role",
-			"error_description": err.Error(),
-		})
-	}
-	return c.JSON(http.StatusOK, echo.Map{
-		"message": fmt.Sprintf("Successfully added instance role with ID %d and username %s", role.ID, role.Username),
-		"status":  "success",
-	})
-
 }
 
 func (h *instanceHandler) editInstance(c echo.Context) error {

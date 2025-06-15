@@ -99,6 +99,8 @@ export default function InstanceViewPage() {
   const [instanceDeleted, setInstanceDeleted] = useState(false); // State to track if the instance was deleted
   const [deleteUsername, setDeleteUsername] = useState<string | null>(null);
   const [deleteHostUsername, setDeleteHostUsername] = useState<string | null>(null);
+  const [deleteRoleID, setDeleteRoleID] = useState<number | null>(null);
+  const [roleDeleteDialogOpen, setRoleDeleteDialogOpen] = useState(false);
   useEffect(() => {
     async function fetchRoles() {
       try {
@@ -133,7 +135,7 @@ export default function InstanceViewPage() {
   async function onSubmitUser(data: z.infer<typeof UserFormSchema>) {
     setUserDialogOpen(false);
     try{
-    const response = await apiClient.post(`/api/instances/users/${id}`, data);
+    const response = await apiClient.post<DefaultStatusResponse>(`/api/instances/users/${id}`, data);
     console.log("API Response:", response);
     if (response.status === 200) {
       // Success: Open the dialog and set the message
@@ -160,7 +162,7 @@ export default function InstanceViewPage() {
   async function onSubmitRole(data: z.infer<typeof RoleFormSchema>) {
     setRoleDialogOpen(false);
     try{
-    const response = await apiClient.post(`/api/instances/roles/${id}`, data);
+    const response = await apiClient.post<DefaultStatusResponse>(`/api/instances/roles/${id}`, data);
     console.log("API Response:", response);
     if (response.status === 200) {
       // Success: Open the dialog and set the message
@@ -251,6 +253,90 @@ export default function InstanceViewPage() {
       accessorKey: "host_username",
       header: "Host Username",
     },
+    {
+      accessorKey: "",
+      header: "",
+      id: "delete",
+      enableHiding: false,
+      cell: ({ row }: { row: Row<{ host_username: string, id: number }> }) => {
+        const host_username = row.original.host_username;
+        const roleId = row.original.id;
+        const handleRoleDelete = async (e: React.FormEvent) => {
+          e.preventDefault();
+          try {
+            let response = await apiClient.delete<DefaultStatusResponse>(`/api/instances/roles/${id}`, {
+               host_username: deleteHostUsername,
+               id: deleteRoleID,
+              }
+            );
+            if (response.status === 200) {
+              setStatusDialogOpen(true);
+              setDialogDescription(`${response.data.status}: ${response.data.message}`);
+            } else {
+              setStatusDialogOpen(true);
+              setDialogDescription(`${response.data.error}: ${response.data.error_description}`);
+            }
+            // Optionally refresh users list or show a dialog
+          } catch (error) {
+            console.error("Failed to delete host user:", error);
+          }
+          setRoleDeleteDialogOpen(false);
+          setDeleteUsername(null);
+          setDeleteHostUsername(null);
+        };
+      
+        return (
+          <>
+            <Dialog
+              open={roleDeleteDialogOpen && deleteRoleID === roleId && deleteHostUsername === host_username}
+              onOpenChange={(open) => {
+                setUserDeleteDialogOpen(open);
+                if (open) {
+                  setDeleteRoleID(roleId);
+                  setDeleteHostUsername(host_username);
+                }
+                else {
+                  setDeleteRoleID(null);
+                  setDeleteHostUsername(null);
+                }
+              }}
+            >
+              <DialogTrigger asChild>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  className="hidden h-8 lg:flex w-[80px] ml-auto mr-2"
+                  onClick={() => {
+                    setDeleteRoleID(roleId);
+                    setDeleteHostUsername(host_username);
+                    setRoleDeleteDialogOpen(true);
+                  }}
+                >
+                  Delete
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Are you absolutely sure?</DialogTitle>
+                  <DialogDescription>
+                    This action cannot be undone. If you are sure, click the button below to proceed.
+                  </DialogDescription>
+                </DialogHeader>
+                <form className="flex flex-col items-center" onSubmit={handleRoleDelete}>
+                  <Button
+                    type="submit"
+                    variant="outline"
+                    className="w-full focus:ring-2 mt-4"
+                  >
+                    Yes
+                  </Button>
+                </form>
+              </DialogContent>
+            </Dialog>
+          </>
+        );
+      }
+    }
   ]
   const Userscolumns = [
     {
@@ -267,7 +353,8 @@ export default function InstanceViewPage() {
     },
     {
       accessorKey: "",
-      header: "Actions",
+      header: "",
+      id: "delete",
       enableHiding: false,
       cell: ({ row }: { row: Row<{ host_username: string, username: string }> }) => {
         const host_username = row.original.host_username;
@@ -316,7 +403,7 @@ export default function InstanceViewPage() {
                 <Button
                   variant="destructive"
                   size="sm"
-                  className="hidden h-8 lg:flex w-[80px]"
+                  className="hidden h-8 lg:flex w-[80px] ml-auto mr-2"
                   onClick={() => {
                     setDeleteUsername(username);
                     setDeleteHostUsername(host_username);
@@ -400,6 +487,7 @@ export default function InstanceViewPage() {
   )}
 </p>
       <p className="pt-4 flex items-center space-x-2"><strong>Host Users:&nbsp;</strong> {instance.HostUsers && instance.HostUsers.join(", ")}</p>
+      <p className="pt-4 flex items-center space-x-2"><strong>Client ID:&nbsp;</strong> {instance.ClientID}</p>
       <p className="pt-4 flex items-center space-x-2"><strong>Created By:&nbsp;</strong> {instance.CreatedBy}</p>
       <p className="pt-4 flex items-center space-x-2">
 <Link href={`/instances/edit/${id}`}>

@@ -6,6 +6,7 @@ import (
 
 	"github.com/Utkar5hM/Execstasy/api/controllers/authentication"
 	"github.com/Utkar5hM/Execstasy/api/utils/config"
+	"github.com/Utkar5hM/Execstasy/api/utils/helper"
 	"github.com/doug-martin/goqu/v9"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/labstack/echo/v4"
@@ -29,9 +30,7 @@ func (h *roleHandler) createRole(c echo.Context) error {
 		return c.String(http.StatusBadRequest, "bad request")
 	}
 	if roleStruct.Name == "" {
-		return c.JSON(400, echo.Map{
-			"error": "Role name is required",
-		})
+		return c.JSON(400, helper.ErrorMessage("Role name is required", nil))
 	}
 
 	sql, _, _ := goqu.Insert("roles").Rows(
@@ -40,16 +39,61 @@ func (h *roleHandler) createRole(c echo.Context) error {
 			"description": roleStruct.Description,
 			"created_by":  claims.Id,
 		},
-	).ToSQL()
-	_, err := h.DB.Exec(context.Background(), sql)
+	).Returning(goqu.I("id")).ToSQL()
+	row := h.DB.QueryRow(context.Background(), sql)
+	var roleID int
+	err := row.Scan(&roleID)
 	if err != nil {
-		return c.JSON(400, echo.Map{
-			"error": "Failed to create role: ",
-		})
+		return c.JSON(400, helper.ErrorMessage("Failed to create role", err))
 	}
 	return c.JSON(http.StatusOK, echo.Map{
 		"message": "Successfully created role",
+		"id":      roleID,
 	})
+}
+
+type ParamsIDStruct struct {
+	ID uint64 `param:"id"` // Match the path parameter name
+}
+type Role struct {
+	ID          int    `db:"id"`
+	Name        string `db:"name"`
+	Description string `db:"description"`
+	CreatedBy   string `db:"createdBy"`
+	CreatedAt   string `db:"createdAt"`
+	UpdatedAt   string `db:"updatedAt"`
+}
+
+func (h *roleHandler) getRole(c echo.Context) error {
+	var roleID ParamsIDStruct
+
+	err := (&echo.DefaultBinder{}).BindPathParams(c, &roleID)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("Invalid path parameters", err))
+	}
+	if roleID.ID == 0 {
+		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("Role ID is required", nil))
+	}
+	sql, _, _ := goqu.From("roles").
+		Join(
+			goqu.T("users"),
+			goqu.On(goqu.Ex{"roles.created_by": goqu.I("users.id")}),
+		).Where(goqu.Ex{"roles.id": roleID.ID}).
+		Select(
+			goqu.I("roles.id"),
+			goqu.I("roles.name"),
+			goqu.I("roles.description"),
+			goqu.I("users.username").As("createdBy"),
+			goqu.L("to_char(roles.created_at, 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"')").As("createdAt"),
+			goqu.L("to_char(roles.updated_at, 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"')").As("updatedAt"),
+		).ToSQL()
+	row := h.DB.QueryRow(context.Background(), sql)
+	var role Role
+	err = row.Scan(&role.ID, &role.Name, &role.Description, &role.CreatedBy, &role.CreatedAt, &role.UpdatedAt)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("Failed to scan role", err))
+	}
+	return c.JSON(http.StatusOK, role)
 }
 
 func (h *roleHandler) getRoles(c echo.Context) error {
@@ -123,32 +167,28 @@ func (h *roleHandler) getRoles(c echo.Context) error {
 	return c.JSON(http.StatusOK, roles)
 }
 
-type DeleteRole struct {
-	Id uint64 `json:"id"`
-}
-
 func (h *roleHandler) deleteRole(c echo.Context) error {
-	deleteRoleStruct := new(DeleteRole)
-	if err := c.Bind(deleteRoleStruct); err != nil {
-		return c.String(http.StatusBadRequest, "bad request")
+	var roleID ParamsIDStruct
+
+	err := (&echo.DefaultBinder{}).BindPathParams(c, &roleID)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("Invalid path parameters", err))
 	}
-	if deleteRoleStruct.Id == 0 {
-		return c.JSON(400, echo.Map{
-			"error": "Role ID is required",
-		})
+	if roleID.ID == 0 {
+		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("Role ID is required", nil))
 	}
 	// Check if the role exists before attempting to delete
-	sqlCheck, _, _ := goqu.From("roles").Where(goqu.Ex{"id": deleteRoleStruct.Id}).Select(goqu.COUNT("*")).ToSQL()
+	sqlCheck, _, _ := goqu.From("roles").Where(goqu.Ex{"id": roleID.ID}).Select(goqu.COUNT("*")).ToSQL()
 	row := h.DB.QueryRow(context.Background(), sqlCheck)
 	var count int
-	err := row.Scan(&count)
+	err = row.Scan(&count)
 	if err != nil || count == 0 {
 		return c.JSON(400, echo.Map{
 			"error": "Role not found",
 		})
 	}
 	// Proceed with deletion if the role exists
-	sql, _, _ := goqu.Delete("roles").Where(goqu.Ex{"id": deleteRoleStruct.Id}).ToSQL()
+	sql, _, _ := goqu.Delete("roles").Where(goqu.Ex{"id": roleID.ID}).ToSQL()
 	_, err = h.DB.Exec(context.Background(), sql)
 	if err != nil {
 		return c.JSON(400, echo.Map{
@@ -171,4 +211,48 @@ func (h *roleHandler) isAdminMiddleware(next echo.HandlerFunc) echo.HandlerFunc 
 		}
 		return next(c)
 	}
+}
+
+func (h *roleHandler) editRole(c echo.Context) error {
+	var roleID ParamsIDStruct
+
+	err := (&echo.DefaultBinder{}).BindPathParams(c, &roleID)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("Invalid path parameters", err))
+	}
+	if roleID.ID == 0 {
+		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("Role ID is required", nil))
+	}
+	var roleStruct CreateRole
+	if err := c.Bind(&roleStruct); err != nil {
+		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("Failed to bind request body", err))
+	}
+	if roleStruct.Name == "" {
+		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("Role name is required", nil))
+	}
+	// check if role exists
+	sqlCheck, _, _ := goqu.From("roles").Where(goqu.Ex{"id": roleID.ID}).Select(goqu.COUNT("*")).ToSQL()
+	row := h.DB.QueryRow(context.Background(), sqlCheck)
+	var count int
+	err = row.Scan(&count)
+	if err != nil {
+		return c.JSON(400, helper.ErrorMessage("Failed to check role existence", err))
+	}
+	if count == 0 {
+		return c.JSON(400, helper.ErrorMessage("Role not found", nil))
+	}
+	sql, _, _ := goqu.Update("roles").Set(
+		goqu.Record{
+			"name":        roleStruct.Name,
+			"description": roleStruct.Description,
+		},
+	).Where(goqu.Ex{"id": roleID.ID}).ToSQL()
+	_, err = h.DB.Exec(context.Background(), sql)
+	if err != nil {
+		return c.JSON(400, helper.ErrorMessage("Failed to update role", err))
+	}
+	return c.JSON(http.StatusOK, echo.Map{
+		"message": "Successfully updated role",
+		"status":  "success",
+	})
 }

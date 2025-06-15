@@ -40,6 +40,7 @@ import {
 import { apiClient } from "@/utils/apiClient";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DataTableColumnHeader } from "../instances/components/data-table-column-header";
+import { IconUserCheck } from "@tabler/icons-react";
 
 export type Role = {
   id: number;
@@ -189,8 +190,19 @@ if (loading) {
       );
 }
   return (
-    <div className="p-8">
-      <h1 className="text-2xl font-bold">Roles</h1>
+    <div className="hidden h-full flex-1 flex-col space-y-4 p-8 md:flex">
+      <div className="flex items-center justify-between space-y-2">
+      <div>
+          <h2 className="text-2xl font-bold tracking-tight">Roles</h2>
+        </div>
+        <div className="flex items-center space-x-2">
+          <Link href="/roles/add">
+        <Button size="sm">
+      <IconUserCheck /> Add Role
+    </Button>
+    </Link>
+    </div>
+        </div>
       <div className="w-full">
         <div className="flex items-center py-4">
           <Input

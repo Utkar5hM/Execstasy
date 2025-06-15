@@ -38,6 +38,7 @@ func useInstanceRoutes(g *echo.Group, db *pgxpool.Pool, cfg *config.Config) {
 
 	g.GET("/roles/:id", h.getInstanceRoles)
 	g.POST("/roles/:id", h.addInstanceRoles)
+	g.DELETE("/roles/:id", h.deleteInstanceRoles)
 	// g.GET("/hostUsers/:id", h.getInstanceHostUsers)
 
 	g.Use(h.isAdminOrCreatorMiddleware)

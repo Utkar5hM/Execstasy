@@ -86,21 +86,21 @@ const columns: ColumnDef<Role>[] = [
     accessorKey: "email",
     header: "Email",
   },
-  {
-    accessorKey: "id",
-    header: "",
-    enableHiding: false,
-    cell: ({ row }) => (
-      <Link href={`/Users/view/${row.getValue("id")}`}>
-<Button
-        variant="outline"
-        size="sm"
-        className="ml-auto hidden h-8 lg:flex w-[80px]"
-      >View
-      </Button>
-      </Link>
-    ),
-  }
+//   {
+//     accessorKey: "id",
+//     header: "",
+//     enableHiding: false,
+//     cell: ({ row }) => (
+//       <Link href={`/Users/view/${row.getValue("id")}`}>
+// <Button
+//         variant="outline"
+//         size="sm"
+//         className="ml-auto hidden h-8 lg:flex w-[80px]"
+//       >View
+//       </Button>
+//       </Link>
+//     ),
+//   }
 ];
 
 export default function UsersPage() {

@@ -9,14 +9,18 @@ import (
 
 func UseSubroute(g *echo.Group, db *pgxpool.Pool, cfg *config.Config) {
 	h := &roleHandler{config.Handler{DB: db, Config: cfg}}
+
 	protectedGroup := g.Group("")
 	protectedGroup.Use(authentication.IsLoggedIn(cfg.JWT_SECRET))
 	protectedGroup.Use(h.isAdminMiddleware)
-	protectedGroup.POST("", h.createRole)
-	protectedGroup.DELETE("", h.deleteRole)
-	loggedInGroup := g.Group("")
-	loggedInGroup.Use(authentication.IsLoggedIn(cfg.JWT_SECRET))
-	loggedInGroup.POST("/user", h.AddUserToRole)
-	loggedInGroup.DELETE("/user", h.DeleteUserFromRole)
+
+	protectedGroup.POST("/users/:id", h.AddUserToRole)
+	protectedGroup.DELETE("/users/:id", h.DeleteUserFromRole)
+
 	g.GET("", h.getRoles)
+	g.GET("/view/:id", h.getRole)
+	protectedGroup.PUT("/edit/:id", h.editRole)
+	g.GET("/users/:id", h.getRoleUsers)
+	protectedGroup.POST("", h.createRole)
+	protectedGroup.DELETE("/:id", h.deleteRole)
 }
