@@ -45,17 +45,7 @@ func main() {
 		Password: cfg.REDIS_PASSWORD, // no password set
 		DB:       cfg.REDIS_DB,       // use default DB
 	})
-	var ctx = context.Background()
-	err = rdb.Set(ctx, "key", "value", 0).Err()
-	if err != nil {
-		panic(err)
-	}
 
-	val, err := rdb.Get(ctx, "key").Result()
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println("key", val)
 	e := echo.New()
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())

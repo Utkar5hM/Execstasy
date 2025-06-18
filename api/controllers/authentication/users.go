@@ -10,7 +10,7 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-func (h *authHandler) getUsers(c echo.Context) error {
+func (h *AuthHandler) getUsers(c echo.Context) error {
 	sql, _, _ := goqu.From("users").
 		Select("id", "username", "name", "email", "role").ToSQL()
 	rows, err := h.DB.Query(c.Request().Context(), sql)
@@ -40,7 +40,7 @@ func (h *authHandler) getUsers(c echo.Context) error {
 	return c.JSON(200, users)
 }
 
-func (h *authHandler) searchUsers(c echo.Context) error {
+func (h *AuthHandler) searchUsers(c echo.Context) error {
 	// Get the search query from the request
 	query := c.QueryParam("query")
 	if query == "" {
@@ -91,7 +91,7 @@ func (h *authHandler) searchUsers(c echo.Context) error {
 	return c.JSON(200, users)
 }
 
-func (h *authHandler) getMe(c echo.Context) error {
+func (h *AuthHandler) getMe(c echo.Context) error {
 	// Get the user ID from the context
 	user := c.Get("user").(*jwt.Token)
 	claims := user.Claims.(*JwtCustomClaims)
@@ -123,7 +123,7 @@ type updateMeRequest struct {
 	Name     string `json:"name"`
 }
 
-func (h *authHandler) updateMe(c echo.Context) error {
+func (h *AuthHandler) updateMe(c echo.Context) error {
 	// Get the user ID from the context
 	user := c.Get("user").(*jwt.Token)
 	claims := user.Claims.(*JwtCustomClaims)
@@ -186,7 +186,7 @@ type JSONIDStruct struct {
 	ID uint64 `json:"id"` // Match the path parameter name
 }
 
-func (h *authHandler) updateRole(c echo.Context) error {
+func (h *AuthHandler) updateRole(c echo.Context) error {
 	// Get the user ID from the context
 	user := c.Get("user").(*jwt.Token)
 	claims := user.Claims.(*JwtCustomClaims)

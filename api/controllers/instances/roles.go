@@ -1,7 +1,6 @@
 package instances
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 
@@ -29,7 +28,7 @@ func (h *instanceHandler) getInstanceRoles(c echo.Context) error {
 		goqu.I("instance_roles.instance_id").Eq(instance.ID),
 	).ToSQL()
 
-	rows, err := h.DB.Query(context.Background(), sql)
+	rows, err := h.DB.Query(c.Request().Context(), sql)
 	if err != nil {
 		return c.JSON(400, helper.ErrorMessage("Failed to get instance roles", err))
 	}
@@ -73,7 +72,7 @@ func (h *instanceHandler) addInstanceRoles(c echo.Context) error {
 		goqu.Ex{"instance_id": instance.ID, "role_id": role.ID, "instance_host_username": role.Username},
 	).Select(goqu.COUNT("*")).ToSQL()
 	var count int64
-	err = h.DB.QueryRow(context.Background(), sql).Scan(&count)
+	err = h.DB.QueryRow(c.Request().Context(), sql).Scan(&count)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{
 			"error":             "Failed to check existing instance role: ",
@@ -93,7 +92,7 @@ func (h *instanceHandler) addInstanceRoles(c echo.Context) error {
 			"instance_host_username": role.Username,
 		},
 	).ToSQL()
-	_, err = h.DB.Exec(context.Background(), sql)
+	_, err = h.DB.Exec(c.Request().Context(), sql)
 	if err != nil {
 		return c.JSON(400, echo.Map{
 			"error":             "Failed to add instance role",
@@ -126,7 +125,7 @@ func (h *instanceHandler) deleteInstanceRoles(c echo.Context) error {
 		goqu.Ex{"instance_id": instance.ID, "role_id": role.ID, "instance_host_username": role.Username},
 	).Select(goqu.COUNT("*")).ToSQL()
 	var count int64
-	err = h.DB.QueryRow(context.Background(), sql).Scan(&count)
+	err = h.DB.QueryRow(c.Request().Context(), sql).Scan(&count)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, helper.ErrorMessage("Failed to check existing instance role", err))
 	}
@@ -136,7 +135,7 @@ func (h *instanceHandler) deleteInstanceRoles(c echo.Context) error {
 	sql, _, _ = goqu.Delete("instance_roles").Where(
 		goqu.Ex{"instance_id": instance.ID, "role_id": role.ID, "instance_host_username": role.Username},
 	).ToSQL()
-	_, err = h.DB.Exec(context.Background(), sql)
+	_, err = h.DB.Exec(c.Request().Context(), sql)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, helper.ErrorMessage("Failed to delete instance role", err))
 	}

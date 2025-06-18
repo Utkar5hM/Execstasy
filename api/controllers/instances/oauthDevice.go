@@ -1,7 +1,6 @@
 package instances
 
 import (
-	"context"
 	"crypto/rand"
 	"errors"
 	"math/big"
@@ -53,7 +52,7 @@ func (h *instanceHandler) deviceAuthorization(c echo.Context) error {
 
 	sql, _, _ := goqu.From("instances").Where(goqu.C("client_id").Eq(authReq.ClientId)).Select("id").ToSQL()
 
-	row := h.DB.QueryRow(context.Background(), sql)
+	row := h.DB.QueryRow(c.Request().Context(), sql)
 	var instanceId int
 	err := row.Scan(&instanceId)
 	if err != nil {
@@ -85,28 +84,28 @@ func (h *instanceHandler) deviceAuthorization(c echo.Context) error {
 		"clientIP":    clientIP,
 		"instance_id": instanceId,
 	}
-	_, err = h.RDB.HSet(context.Background(), deviceCode, data).Result()
+	_, err = h.RDB.HSet(c.Request().Context(), deviceCode, data).Result()
 	if err != nil {
 		return c.JSON(400, echo.Map{
 			"error":   "Failed to store device code",
 			"message": err.Error(),
 		})
 	}
-	_, err = h.RDB.HSet(context.Background(), userCode, data).Result()
+	_, err = h.RDB.HSet(c.Request().Context(), userCode, data).Result()
 	if err != nil {
 		return c.JSON(400, echo.Map{
 			"error":   "Failed to store user code",
 			"message": err.Error(),
 		})
 	}
-	_, err = h.RDB.Expire(context.Background(), deviceCode, 20*time.Minute).Result()
+	_, err = h.RDB.Expire(c.Request().Context(), deviceCode, 20*time.Minute).Result()
 	if err != nil {
 		return c.JSON(400, echo.Map{
 			"error":   "Failed to set expiration for device code",
 			"message": err.Error(),
 		})
 	}
-	_, err = h.RDB.Expire(context.Background(), userCode, 20*time.Minute).Result()
+	_, err = h.RDB.Expire(c.Request().Context(), userCode, 20*time.Minute).Result()
 	if err != nil {
 		return c.JSON(400, echo.Map{
 			"error":   "Failed to set expiration for device code",
@@ -144,7 +143,7 @@ func (h *instanceHandler) token(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("unsupported_grant_type", "Only 'urn:ietf:params:oauth:grant-type:device_code' is supported"))
 	}
 
-	value, err := h.RDB.HGetAll(context.Background(), tokenReq.DeviceCode).Result()
+	value, err := h.RDB.HGetAll(c.Request().Context(), tokenReq.DeviceCode).Result()
 	if err != nil || len(value) == 0 {
 		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("invalid_grant", "Device code does not exist or has expired"))
 	}
@@ -201,7 +200,7 @@ func (h *instanceHandler) VerifyUserCode(c echo.Context) error {
 		return c.String(http.StatusBadRequest, "bad request")
 	}
 	userCode := userCodeStruct.Code
-	value, err := h.RDB.HGetAll(context.Background(), userCode).Result()
+	value, err := h.RDB.HGetAll(c.Request().Context(), userCode).Result()
 	if err != nil {
 		return c.JSON(400, helper.ErrorMessage("Invalid user_code", "User code does not exist or has expired"))
 	}
@@ -219,18 +218,36 @@ func (h *instanceHandler) VerifyUserCode(c echo.Context) error {
 	userId := claims.Id
 	instanceId := value["instance_id"]
 
-	sql, _, err := goqu.From("instance_users").
+	// check if instance exists and is active
+	sql, _, err := goqu.From("instances").
+		Where(goqu.C("id").Eq(instanceId), goqu.C("status").Eq("active")).Select(goqu.COUNT("*")).ToSQL()
+	row := h.DB.QueryRow(c.Request().Context(), sql)
+	var instanceExists int
+	err = row.Scan(&instanceExists)
+	if err != nil {
+		_, redisErr := h.RDB.HSet(c.Request().Context(), userCode, "status", "denied").Result()
+		return c.JSON(400, helper.ErrorMessage("Failed to verify user code", errors.Join(err, redisErr)))
+	}
+	if instanceExists == 0 {
+		_, err = h.RDB.HSet(c.Request().Context(), userCode, "status", "denied").Result()
+		if err != nil {
+			return c.JSON(400, helper.ErrorMessage("Failed to verify user code", err))
+		}
+		return c.JSON(400, helper.ErrorMessage("User code verification failed", "Instance does not exist or is not active"))
+	}
+
+	sql, _, err = goqu.From("instance_users").
 		Where(
 			goqu.C("instance_id").Eq(instanceId),
 			goqu.C("user_id").Eq(userId),
 			goqu.Or(goqu.C("instance_host_username").Eq(hostUsername), goqu.C("instance_host_username").Eq("*")),
 		).Select(goqu.COUNT("*")).ToSQL()
 
-	row := h.DB.QueryRow(context.Background(), sql)
+	row = h.DB.QueryRow(c.Request().Context(), sql)
 	var count int
 	err = row.Scan(&count)
 	if err != nil {
-		_, redisErr := h.RDB.HSet(context.Background(), userCode, "status", "denied").Result()
+		_, redisErr := h.RDB.HSet(c.Request().Context(), userCode, "status", "denied").Result()
 		return c.JSON(400, helper.ErrorMessage("Failed to verify user code", errors.Join(err, redisErr)))
 	}
 	if count == 0 {
@@ -247,26 +264,26 @@ func (h *instanceHandler) VerifyUserCode(c echo.Context) error {
 				),
 			).
 			Select(goqu.COUNT("*")).ToSQL()
-		row = h.DB.QueryRow(context.Background(), sql)
+		row = h.DB.QueryRow(c.Request().Context(), sql)
 		var roleCount int
 		err = row.Scan(&roleCount)
 		if err != nil {
-			_, redisErr := h.RDB.HSet(context.Background(), userCode, "status", "denied").Result()
+			_, redisErr := h.RDB.HSet(c.Request().Context(), userCode, "status", "denied").Result()
 			return c.JSON(400, helper.ErrorMessage("Failed to verify user code", errors.Join(err, redisErr)))
 		}
 		if roleCount == 0 {
-			_, err = h.RDB.HSet(context.Background(), userCode, "status", "denied").Result()
+			_, err = h.RDB.HSet(c.Request().Context(), userCode, "status", "denied").Result()
 			if err != nil {
 				return c.JSON(400, helper.ErrorMessage("Failed to verify user code", err))
 			}
 			return c.JSON(400, helper.ErrorMessage("User code verification failed", "You do not have permission to access this instance"))
 		}
 	}
-	_, err = h.RDB.HSet(context.Background(), userCode, "status", "approved").Result()
+	_, err = h.RDB.HSet(c.Request().Context(), userCode, "status", "approved").Result()
 	if err != nil {
 		return c.JSON(400, helper.ErrorMessage("Verified user code but failed to update status", err))
 	}
-	_, err = h.RDB.HSet(context.Background(), value["device_code"], "status", "approved").Result()
+	_, err = h.RDB.HSet(c.Request().Context(), value["device_code"], "status", "approved").Result()
 	if err != nil {
 		return c.JSON(400, helper.ErrorMessage("Verified user code but failed to update device code status", err))
 	}

@@ -1,7 +1,6 @@
 package instances
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"net/http"
@@ -48,7 +47,7 @@ func (h *instanceHandler) getInstances(c echo.Context) error {
 		"instances.status",
 		goqu.I("users.username").As("created_by"),
 	).ToSQL()
-	rows, err := h.DB.Query(context.Background(), sql)
+	rows, err := h.DB.Query(c.Request().Context(), sql)
 	if err != nil {
 		return c.JSON(400, helper.ErrorMessage("Failed to fetch instances: ", err))
 	}
@@ -110,7 +109,7 @@ func (h *instanceHandler) getMyInstances(c echo.Context) error {
 			"instances.description",
 		).
 		ToSQL()
-	rows, err := h.DB.Query(context.Background(), sql)
+	rows, err := h.DB.Query(c.Request().Context(), sql)
 	if err != nil {
 		return c.JSON(400, helper.ErrorMessage("Failed to fetch instances: ", err))
 	}
@@ -157,7 +156,7 @@ func (h *instanceHandler) createInstance(c echo.Context) error {
 			"created_by":   claims.Id,
 		},
 	).Returning("id", "client_id").ToSQL()
-	row := h.DB.QueryRow(context.Background(), sql)
+	row := h.DB.QueryRow(c.Request().Context(), sql)
 	var id int64
 	var clientID string
 	if err := row.Scan(&id, &clientID); err != nil {
@@ -178,52 +177,13 @@ func (h *instanceHandler) createInstance(c echo.Context) error {
 func (h *instanceHandler) deleteInstance(c echo.Context) error {
 	id := c.Param("id")
 	sql, _, _ := goqu.From("instances").Where(goqu.C("id").Eq(id)).Delete().ToSQL()
-	_, err := h.DB.Exec(context.Background(), sql)
+	_, err := h.DB.Exec(c.Request().Context(), sql)
 	if err != nil {
 		return c.JSON(400, helper.ErrorMessage("Failed to delete instance", err))
 	}
 	return c.JSON(200, echo.Map{
 		"status": "success",
 	})
-}
-
-func (h *instanceHandler) setStatusInstance(c echo.Context) error {
-	id := c.Param("id")
-	status := c.FormValue("status")
-	sql, _, _ := goqu.From("instances").Where(goqu.C("id").Eq(id)).Update().Set(goqu.Record{"status": status}).ToSQL()
-	_, err := h.DB.Exec(context.Background(), sql)
-	if err != nil {
-		return c.JSON(400, helper.ErrorMessage(fmt.Sprintf("Failed to set instance status to %s.", status), err))
-	}
-	return c.JSON(200, echo.Map{
-		"status": "success",
-	})
-}
-
-func (h *instanceHandler) isAdminOrCreatorMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
-	return func(c echo.Context) error {
-		user := c.Get("user").(*jwt.Token)
-		claims := user.Claims.(*authentication.JwtCustomClaims)
-		if claims.Role != "admin" {
-			id := c.Param("id")
-			sql, _, _ := goqu.From("instances").Where(goqu.C("id").Eq(id)).Select("created_by").ToSQL()
-			row := h.DB.QueryRow(context.Background(), sql)
-			var instance_created_by int
-			err := row.Scan(&instance_created_by)
-			if err != nil {
-				return c.JSON(400, echo.Map{
-					"message": "Failed to Authroize your action.",
-					"error":   err.Error(),
-				})
-			}
-			if claims.Id != instance_created_by {
-				return c.JSON(403, echo.Map{
-					"message": "You are not authorized to disable this instance",
-				})
-			}
-		}
-		return next(c)
-	}
 }
 
 func CensorClientID(clientID string) string {
@@ -259,7 +219,7 @@ func (h *instanceHandler) getInstance(c echo.Context) error {
 		goqu.I("instances.id").Eq(instanceID.ID), // Correctly quote table and column separately
 	).ToSQL()
 
-	row := h.DB.QueryRow(context.Background(), sql)
+	row := h.DB.QueryRow(c.Request().Context(), sql)
 	var instance Instance
 	if err := row.Scan(&instance.ID, &instance.Name, &instance.HostAddress, &instance.Status, &instance.Description, &instance.CreatedBy, &instance.ClientID); err != nil {
 		return c.JSON(500, helper.ErrorMessage("Failed to scan host user", err))
@@ -269,7 +229,7 @@ func (h *instanceHandler) getInstance(c echo.Context) error {
 		Select("username").
 		Where(goqu.Ex{"instance_id": instanceID.ID}).
 		ToSQL()
-	hostUsersRows, err := h.DB.Query(context.Background(), hostUsersSql)
+	hostUsersRows, err := h.DB.Query(c.Request().Context(), hostUsersSql)
 	if err != nil {
 		return c.JSON(500, helper.ErrorMessage("Failed to fetch instance host users", err))
 	}
@@ -318,7 +278,7 @@ func (h *instanceHandler) getInstanceUsers(c echo.Context) error {
 		goqu.I("instance_users.instance_id").Eq(instance.ID),
 	).ToSQL()
 
-	rows, err := h.DB.Query(context.Background(), sql)
+	rows, err := h.DB.Query(c.Request().Context(), sql)
 	if err != nil {
 		return c.JSON(400, echo.Map{
 			"error": "Failed to fetch instance users: " + err.Error(),
@@ -367,7 +327,7 @@ func (h *instanceHandler) deleteInstanceUsers(c echo.Context) error {
 		goqu.Ex{"username": user.Username},
 	).Select(goqu.COUNT("*")).ToSQL()
 	var count int64
-	err = h.DB.QueryRow(context.Background(), sql).Scan(&count)
+	err = h.DB.QueryRow(c.Request().Context(), sql).Scan(&count)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, helper.ErrorMessage("Failed to check existing user: ", err))
 	}
@@ -385,7 +345,7 @@ func (h *instanceHandler) deleteInstanceUsers(c echo.Context) error {
 		goqu.On(goqu.Ex{"instance_users.user_id": goqu.I("users.id")}),
 	).Select(goqu.COUNT("*")).ToSQL()
 	var userCount int64
-	err = h.DB.QueryRow(context.Background(), sql).Scan(&userCount)
+	err = h.DB.QueryRow(c.Request().Context(), sql).Scan(&userCount)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, helper.ErrorMessage("Failed to check existing instance user: ", err))
 	}
@@ -397,7 +357,7 @@ func (h *instanceHandler) deleteInstanceUsers(c echo.Context) error {
 		Select("id").
 		ToSQL()
 	var userID int64
-	err = h.DB.QueryRow(context.Background(), sql).Scan(&userID)
+	err = h.DB.QueryRow(c.Request().Context(), sql).Scan(&userID)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, helper.ErrorMessage("Failed to get user ID: ", err))
 	}
@@ -408,7 +368,7 @@ func (h *instanceHandler) deleteInstanceUsers(c echo.Context) error {
 			"instance_host_username": user.HostUsername,
 		}).
 		ToSQL()
-	_, err = h.DB.Exec(context.Background(), sql)
+	_, err = h.DB.Exec(c.Request().Context(), sql)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, helper.ErrorMessage("Failed to delete instance user: ", err))
 	}
@@ -456,7 +416,7 @@ func (h *instanceHandler) editInstance(c echo.Context) error {
 		"host_address": instanceData.HostAddress,
 		"status":       instanceData.Status,
 	}).Returning(goqu.I("id"), goqu.I("client_id")).ToSQL()
-	row := h.DB.QueryRow(context.Background(), sql)
+	row := h.DB.QueryRow(c.Request().Context(), sql)
 	var id int64
 	var clientID string
 	if err := row.Scan(&id, &clientID); err != nil {

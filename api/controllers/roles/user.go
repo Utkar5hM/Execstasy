@@ -1,7 +1,6 @@
 package roles
 
 import (
-	"context"
 	"net/http"
 
 	"github.com/Utkar5hM/Execstasy/api/controllers/authentication"
@@ -54,7 +53,7 @@ func (h *roleHandler) AddUserToRole(c echo.Context) error {
 			}).
 			Select(goqu.COUNT("role_users.user_id")).ToSQL()
 		var isAdmin int
-		if err := h.DB.QueryRow(context.Background(), sqlCheckAdmin).Scan(&isAdmin); err != nil {
+		if err := h.DB.QueryRow(c.Request().Context(), sqlCheckAdmin).Scan(&isAdmin); err != nil {
 			return c.JSON(http.StatusInternalServerError, helper.ErrorMessage("Database error", err))
 		}
 		if isAdmin == 0 {
@@ -65,7 +64,7 @@ func (h *roleHandler) AddUserToRole(c echo.Context) error {
 	// Get user ID from username
 	var userId uint64
 	sqlUserCheck, _, _ := goqu.From("users").Where(goqu.Ex{"username": addUserRoleStruct.Username}).Select("id").ToSQL()
-	if err := h.DB.QueryRow(context.Background(), sqlUserCheck).Scan(&userId); err != nil {
+	if err := h.DB.QueryRow(c.Request().Context(), sqlUserCheck).Scan(&userId); err != nil {
 		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("User not found", err))
 	}
 
@@ -82,7 +81,7 @@ func (h *roleHandler) AddUserToRole(c echo.Context) error {
 		).ToSQL()
 
 	var roleCount, memberCount int
-	if err := h.DB.QueryRow(context.Background(), sqlCheck).Scan(&roleCount, &memberCount); err != nil {
+	if err := h.DB.QueryRow(c.Request().Context(), sqlCheck).Scan(&roleCount, &memberCount); err != nil {
 		return c.JSON(http.StatusInternalServerError, helper.ErrorMessage("Database error", err))
 	}
 
@@ -101,7 +100,7 @@ func (h *roleHandler) AddUserToRole(c echo.Context) error {
 		"role":     addUserRoleStruct.Role,
 	}).ToSQL()
 
-	if _, err := h.DB.Exec(context.Background(), sqlInsert); err != nil {
+	if _, err := h.DB.Exec(c.Request().Context(), sqlInsert); err != nil {
 		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("Failed to add user to role", err))
 	}
 
@@ -146,7 +145,7 @@ func (h *roleHandler) DeleteUserFromRole(c echo.Context) error {
 			Select(goqu.COUNT("role_users.user_id")).ToSQL()
 
 		var isAdmin int
-		if err := h.DB.QueryRow(context.Background(), sqlCheckAdmin).Scan(&isAdmin); err != nil {
+		if err := h.DB.QueryRow(c.Request().Context(), sqlCheckAdmin).Scan(&isAdmin); err != nil {
 			return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Database error"})
 		}
 		if isAdmin == 0 {
@@ -157,7 +156,7 @@ func (h *roleHandler) DeleteUserFromRole(c echo.Context) error {
 	// Get user ID from username
 	var userId uint64
 	sqlUserCheck, _, _ := goqu.From("users").Where(goqu.Ex{"username": deleteUserRoleStruct.Username}).Select("id").ToSQL()
-	if err := h.DB.QueryRow(context.Background(), sqlUserCheck).Scan(&userId); err != nil {
+	if err := h.DB.QueryRow(c.Request().Context(), sqlUserCheck).Scan(&userId); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "User not found"})
 	}
 
@@ -171,7 +170,7 @@ func (h *roleHandler) DeleteUserFromRole(c echo.Context) error {
 		Select(goqu.COUNT("roles.id")).ToSQL()
 
 	var roleCount int
-	if err := h.DB.QueryRow(context.Background(), sqlCheck).Scan(&roleCount); err != nil {
+	if err := h.DB.QueryRow(c.Request().Context(), sqlCheck).Scan(&roleCount); err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Database error"})
 	}
 
@@ -186,7 +185,7 @@ func (h *roleHandler) DeleteUserFromRole(c echo.Context) error {
 			"user_id": userId,
 		}).ToSQL()
 
-	if _, err := h.DB.Exec(context.Background(), sqlDelete); err != nil {
+	if _, err := h.DB.Exec(c.Request().Context(), sqlDelete); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Failed to remove user from role"})
 	}
 
@@ -214,7 +213,7 @@ func (h *roleHandler) getRoleUsers(c echo.Context) error {
 		Where(goqu.Ex{"role_users.role_id": roleID.ID}).
 		Select("users.id", "users.username", "users.name", "role_users.role").
 		ToSQL()
-	rows, err := h.DB.Query(context.Background(), sql)
+	rows, err := h.DB.Query(c.Request().Context(), sql)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, helper.ErrorMessage("Database error", err))
 	}

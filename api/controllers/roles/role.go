@@ -1,7 +1,6 @@
 package roles
 
 import (
-	"context"
 	"net/http"
 
 	"github.com/Utkar5hM/Execstasy/api/controllers/authentication"
@@ -40,7 +39,7 @@ func (h *roleHandler) createRole(c echo.Context) error {
 			"created_by":  claims.Id,
 		},
 	).Returning(goqu.I("id")).ToSQL()
-	row := h.DB.QueryRow(context.Background(), sql)
+	row := h.DB.QueryRow(c.Request().Context(), sql)
 	var roleID int
 	err := row.Scan(&roleID)
 	if err != nil {
@@ -87,7 +86,7 @@ func (h *roleHandler) getRole(c echo.Context) error {
 			goqu.L("to_char(roles.created_at, 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"')").As("createdAt"),
 			goqu.L("to_char(roles.updated_at, 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"')").As("updatedAt"),
 		).ToSQL()
-	row := h.DB.QueryRow(context.Background(), sql)
+	row := h.DB.QueryRow(c.Request().Context(), sql)
 	var role Role
 	err = row.Scan(&role.ID, &role.Name, &role.Description, &role.CreatedBy, &role.CreatedAt, &role.UpdatedAt)
 	if err != nil {
@@ -125,7 +124,7 @@ func (h *roleHandler) getRoles(c echo.Context) error {
 		).
 		Order(goqu.I("roles.id").Asc()). // Correctly quote table and column separately
 		ToSQL()
-	rows, err := h.DB.Query(context.Background(), sql)
+	rows, err := h.DB.Query(c.Request().Context(), sql)
 	if err != nil {
 		return c.JSON(400, echo.Map{
 			"error": "Failed to fetch roles: " + err.Error(),
@@ -179,7 +178,7 @@ func (h *roleHandler) deleteRole(c echo.Context) error {
 	}
 	// Check if the role exists before attempting to delete
 	sqlCheck, _, _ := goqu.From("roles").Where(goqu.Ex{"id": roleID.ID}).Select(goqu.COUNT("*")).ToSQL()
-	row := h.DB.QueryRow(context.Background(), sqlCheck)
+	row := h.DB.QueryRow(c.Request().Context(), sqlCheck)
 	var count int
 	err = row.Scan(&count)
 	if err != nil || count == 0 {
@@ -189,7 +188,7 @@ func (h *roleHandler) deleteRole(c echo.Context) error {
 	}
 	// Proceed with deletion if the role exists
 	sql, _, _ := goqu.Delete("roles").Where(goqu.Ex{"id": roleID.ID}).ToSQL()
-	_, err = h.DB.Exec(context.Background(), sql)
+	_, err = h.DB.Exec(c.Request().Context(), sql)
 	if err != nil {
 		return c.JSON(400, echo.Map{
 			"error": "Failed to delete role: " + err.Error(),
@@ -232,7 +231,7 @@ func (h *roleHandler) editRole(c echo.Context) error {
 	}
 	// check if role exists
 	sqlCheck, _, _ := goqu.From("roles").Where(goqu.Ex{"id": roleID.ID}).Select(goqu.COUNT("*")).ToSQL()
-	row := h.DB.QueryRow(context.Background(), sqlCheck)
+	row := h.DB.QueryRow(c.Request().Context(), sqlCheck)
 	var count int
 	err = row.Scan(&count)
 	if err != nil {
@@ -247,7 +246,7 @@ func (h *roleHandler) editRole(c echo.Context) error {
 			"description": roleStruct.Description,
 		},
 	).Where(goqu.Ex{"id": roleID.ID}).ToSQL()
-	_, err = h.DB.Exec(context.Background(), sql)
+	_, err = h.DB.Exec(c.Request().Context(), sql)
 	if err != nil {
 		return c.JSON(400, helper.ErrorMessage("Failed to update role", err))
 	}
@@ -275,7 +274,7 @@ func (h *roleHandler) getMyRoles(c echo.Context) error {
 			goqu.I("role_users.role"),
 		).ToSQL()
 
-	rows, err := h.DB.Query(context.Background(), sql)
+	rows, err := h.DB.Query(c.Request().Context(), sql)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, helper.ErrorMessage("Failed to fetch roles", err))
 	}

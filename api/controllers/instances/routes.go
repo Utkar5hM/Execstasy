@@ -26,24 +26,26 @@ func UseOAuthServerSubroute(g *echo.Group, db *pgxpool.Pool, rdb *redis.Client, 
 func useInstanceRoutes(g *echo.Group, db *pgxpool.Pool, cfg *config.Config) {
 
 	h := &instanceHandler{config.Handler{DB: db, Config: cfg}}
+	ah := &authentication.AuthHandler{Handler: config.Handler{DB: db, Config: cfg}}
 	g.GET("", h.getInstances)
 	g.GET("/me", h.getMyInstances)
 	g.GET("/view/:id", h.getInstance)
-	g.POST("", h.createInstance)
-	g.PUT("/edit/:id", h.editInstance)
-	g.DELETE("/:id", h.deleteInstance)
+
+	a := g.Group("")
+	a.Use(ah.IsAdminMiddleware)
+	a.POST("", h.createInstance)
+	a.PUT("/edit/:id", h.editInstance)
+	a.DELETE("/:id", h.deleteInstance)
 
 	g.GET("/users/:id", h.getInstanceUsers)
-	g.POST("/users/:id", h.addUserInstanceAccess)
-	g.DELETE("/users/:id", h.deleteInstanceUsers)
+	a.POST("/users/:id", h.addUserInstanceAccess)
+	a.DELETE("/users/:id", h.deleteInstanceUsers)
 
 	g.GET("/roles/:id", h.getInstanceRoles)
-	g.POST("/roles/:id", h.addInstanceRoles)
-	g.DELETE("/roles/:id", h.deleteInstanceRoles)
+	a.POST("/roles/:id", h.addInstanceRoles)
+	a.DELETE("/roles/:id", h.deleteInstanceRoles)
 	// g.GET("/hostUsers/:id", h.getInstanceHostUsers)
 
-	g.Use(h.isAdminOrCreatorMiddleware)
-	g.POST("/hostUsers/:id", h.addInstanceHostUser)
-	g.DELETE("/hostUsers/:id", h.deleteInstanceHostUser)
-	g.PUT("/status/:id", h.setStatusInstance)
+	a.POST("/hostUsers/:id", h.addInstanceHostUser)
+	a.DELETE("/hostUsers/:id", h.deleteInstanceHostUser)
 }

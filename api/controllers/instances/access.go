@@ -1,7 +1,6 @@
 package instances
 
 import (
-	"context"
 	"net/http"
 
 	"github.com/Utkar5hM/Execstasy/api/utils/helper"
@@ -27,7 +26,7 @@ func (h *instanceHandler) addUserInstanceAccess(c echo.Context) error {
 	}
 	instanceId := c.Param("id")
 	sql, _, _ := goqu.From("users").Where(goqu.C("username").Eq(addUserInstanceStruct.Username)).Select("id").ToSQL()
-	row := h.DB.QueryRow(context.Background(), sql)
+	row := h.DB.QueryRow(c.Request().Context(), sql)
 	var userID string
 	err = row.Scan(&userID)
 	if err != nil {
@@ -40,7 +39,7 @@ func (h *instanceHandler) addUserInstanceAccess(c echo.Context) error {
 			"instance_host_username": addUserInstanceStruct.HostUsername,
 		},
 	).ToSQL()
-	_, err = h.DB.Exec(context.Background(), sql)
+	_, err = h.DB.Exec(c.Request().Context(), sql)
 	if err != nil {
 		return c.JSON(400, helper.ErrorMessage("Failed to add access for user to Instance.", err.Error()))
 	}
@@ -55,7 +54,7 @@ func (h *instanceHandler) deleteUserInstanceAccess(c echo.Context) error {
 	username := c.FormValue("username")
 	hostUsername := c.FormValue("host_username")
 	sql, _, _ := goqu.From("users").Where(goqu.C("username").Eq(username)).Select("id").ToSQL()
-	row := h.DB.QueryRow(context.Background(), sql)
+	row := h.DB.QueryRow(c.Request().Context(), sql)
 	var userID string
 	err := row.Scan(&userID)
 	if err != nil {
@@ -66,7 +65,7 @@ func (h *instanceHandler) deleteUserInstanceAccess(c echo.Context) error {
 		})
 	}
 	sql, _, _ = goqu.From("instance_users").Where(goqu.C("instance_id").Eq(instanceId), goqu.C("user_id").Eq(userID), goqu.C("instance_host_username").Eq(hostUsername)).Delete().ToSQL()
-	_, err = h.DB.Exec(context.Background(), sql)
+	_, err = h.DB.Exec(c.Request().Context(), sql)
 	if err != nil {
 		return c.JSON(400, echo.Map{
 			"error":   "Failed to delete instance access to the user.",

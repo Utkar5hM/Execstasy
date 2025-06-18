@@ -1,7 +1,6 @@
 package roles
 
 import (
-	"context"
 	"net/http"
 
 	"github.com/Utkar5hM/Execstasy/api/controllers/authentication"
@@ -49,7 +48,7 @@ func (h *roleHandler) hasRoleEditAccessFunc(c echo.Context) (*RoleEditAccessResu
 			"users.id":   claims.Id,
 		})).Select(goqu.COUNT("*")).ToSQL()
 	var count int
-	if err := h.DB.QueryRow(context.Background(), sql).Scan(&count); err != nil {
+	if err := h.DB.QueryRow(c.Request().Context(), sql).Scan(&count); err != nil {
 		return &RoleEditAccessResult{
 			HasAccess: false,
 			Message:   "Database error",

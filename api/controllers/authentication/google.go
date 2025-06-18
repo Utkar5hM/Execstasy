@@ -1,7 +1,6 @@
 package authentication
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 	"time"
@@ -13,23 +12,23 @@ import (
 	"golang.org/x/oauth2"
 )
 
-type authHandler struct {
+type AuthHandler struct {
 	config.Handler
 }
 
-func (h *authHandler) GoogleLogin(c echo.Context) error {
+func (h *AuthHandler) GoogleLogin(c echo.Context) error {
 	url := h.Config.GoogleLoginConfig.AuthCodeURL("state", oauth2.AccessTypeOffline)
 	return c.Redirect(http.StatusTemporaryRedirect, url)
 }
 
-func (h *authHandler) GoogleCallback(c echo.Context) error {
+func (h *AuthHandler) GoogleCallback(c echo.Context) error {
 	code := c.QueryParam("code")
-	token, err := h.Config.GoogleLoginConfig.Exchange(context.Background(), code)
+	token, err := h.Config.GoogleLoginConfig.Exchange(c.Request().Context(), code)
 	if err != nil {
 		return err
 	}
 
-	client := h.Config.GoogleLoginConfig.Client(context.Background(), token)
+	client := h.Config.GoogleLoginConfig.Client(c.Request().Context(), token)
 	resp, err := client.Get("https://www.googleapis.com/oauth2/v2/userinfo")
 	if err != nil {
 		return err
@@ -47,18 +46,18 @@ func (h *authHandler) GoogleCallback(c echo.Context) error {
 	// Check if user exists in the database
 	sql_fetched_user := &User{}
 	sql, _, _ := goqu.From("users").Where(goqu.C("email").Eq(userInfo.Email)).Select("name", "username", "email", "role", "id").ToSQL()
-	row := h.DB.QueryRow(context.Background(), sql)
+	row := h.DB.QueryRow(c.Request().Context(), sql)
 	err = row.Scan(&sql_fetched_user.Name, &sql_fetched_user.Username, &sql_fetched_user.Email, &sql_fetched_user.Role, &sql_fetched_user.Id)
 	if err != nil {
 		// User does not exist, create a new user
-		_, err = h.DB.Exec(context.Background(),
+		_, err = h.DB.Exec(c.Request().Context(),
 			"INSERT INTO users (username, name, email, role) VALUES ($1, $2, $3, $4)",
 			userInfo.Email, userInfo.Name, userInfo.Email, "user")
 		if err != nil {
 			return err
 		}
 		sql, _, _ = goqu.From("users").Where(goqu.C("email").Eq(userInfo.Email)).Select("name", "username", "email", "role", "id").ToSQL()
-		row := h.DB.QueryRow(context.Background(), sql)
+		row := h.DB.QueryRow(c.Request().Context(), sql)
 		err = row.Scan(&sql_fetched_user.Name, &sql_fetched_user.Username, &sql_fetched_user.Email, &sql_fetched_user.Role, &sql_fetched_user.Id)
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, echo.Map{
