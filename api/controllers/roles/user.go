@@ -236,3 +236,15 @@ func (h *roleHandler) getRoleUsers(c echo.Context) error {
 	}
 	return c.JSON(http.StatusOK, users)
 }
+
+func (h *roleHandler) hasRoleEditAccess(c echo.Context) error {
+	result, err := h.hasRoleEditAccessFunc(c)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, helper.ErrorMessage(result.Message, err))
+	}
+	return c.JSON(http.StatusOK, echo.Map{
+		"access":  result.HasAccess,
+		"message": result.Message,
+		"status":  "success",
+	})
+}

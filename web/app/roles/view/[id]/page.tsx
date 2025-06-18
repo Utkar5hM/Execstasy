@@ -81,7 +81,25 @@ export default function RoleViewPage() {
   const [userDeleteDialogOpen, setUserDeleteDialogOpen] = useState(false);
   const [instanceDeleted, setInstanceDeleted] = useState(false); // State to track if the instance was deleted
   const [deleteUsername, setDeleteUsername] = useState<string | null>(null);
-  const [open, setOpen] = React.useState(false)
+  const [canUpdateRole, setCanUpdateRole] = React.useState(false)
+
+  useEffect(() => {
+    async function checkCanUpdateRole() {
+      try {
+        const response = await apiClient.get(`/api/roles/access/${id}`);
+        if (response.status === 200) {
+          setCanUpdateRole(response.data.access);
+        } else {
+          console.error("Failed to check role update permission:", response.data);
+        }
+      } catch (error) {
+        console.error("Failed to check role update permission:", error);
+      }
+    }
+    checkCanUpdateRole();
+  }
+  , [id]);
+    
 
   const formUser = useForm<z.infer<typeof UserFormSchema>>({
     resolver: zodResolver(UserFormSchema),
@@ -200,6 +218,9 @@ export default function RoleViewPage() {
       id: "delete",
       enableHiding: false,
       cell: ({ row }: { row: Row<{ username: string }> }) => {
+        if (!canUpdateRole) {
+          return null; // Hide the delete button if the user cannot update the role
+        }
         const username = row.original.username;
         const handleDelete = async (e: React.FormEvent) => {
           e.preventDefault();
@@ -358,6 +379,7 @@ Go Back to Roles</Button>
         filterColumn="name"
         headerContent={
           <>
+          {canUpdateRole && (
           <Dialog open={userDialogOpen} onOpenChange={setUserDialogOpen}>
         <DialogTrigger asChild>
           <Button >Add User</Button>
@@ -419,7 +441,7 @@ Go Back to Roles</Button>
       </form>
     </Form>
         </DialogContent>
-    </Dialog>
+    </Dialog>)}
           </>
         } />
       </div>

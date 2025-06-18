@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/Utkar5hM/Execstasy/api/utils/helper"
 	"github.com/doug-martin/goqu/v9"
 	"github.com/labstack/echo/v4"
 )
@@ -30,11 +31,7 @@ func (h *instanceHandler) addUserInstanceAccess(c echo.Context) error {
 	var userID string
 	err = row.Scan(&userID)
 	if err != nil {
-		return c.JSON(400, echo.Map{
-			"error":             "Failed to add access for user to Instance.",
-			"error_description": err.Error(),
-			"status":            "error",
-		})
+		return c.JSON(400, helper.ErrorMessage("Failed to add access for user to Instance.", err.Error()))
 	}
 	sql, _, _ = goqu.Insert("instance_users").Rows(
 		goqu.Record{
@@ -45,11 +42,7 @@ func (h *instanceHandler) addUserInstanceAccess(c echo.Context) error {
 	).ToSQL()
 	_, err = h.DB.Exec(context.Background(), sql)
 	if err != nil {
-		return c.JSON(400, echo.Map{
-			"error":             "Failed to add access for user to Instance.",
-			"error_description": err.Error(),
-			"status":            "error",
-		})
+		return c.JSON(400, helper.ErrorMessage("Failed to add access for user to Instance.", err.Error()))
 	}
 	return c.JSON(200, echo.Map{
 		"status":  "success",

@@ -3,7 +3,7 @@ package instances
 import (
 	"context"
 	"crypto/rand"
-	"fmt"
+	"errors"
 	"math/big"
 	"net/http"
 	"strconv"
@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/Utkar5hM/Execstasy/api/controllers/authentication"
+	"github.com/Utkar5hM/Execstasy/api/utils/helper"
 	"github.com/doug-martin/goqu/v9"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
@@ -35,12 +36,22 @@ func generateUserCode() (string, error) {
 	return string(code), nil
 }
 
+type deviceAuthorizationRequest struct {
+	ClientId string `form:"client_id"`
+	Scope    string `form:"scope"`
+}
+
 func (h *instanceHandler) deviceAuthorization(c echo.Context) error {
-	clientId := c.FormValue("client_id")
-	scope := c.FormValue("scope")
+	var authReq deviceAuthorizationRequest
+	if err := c.Bind(&authReq); err != nil {
+		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("invalid_request", "Bad request format"))
+	}
+	if authReq.ClientId == "" || authReq.Scope == "" {
+		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("invalid_request", "client_id and scope are required"))
+	}
 	clientIP := c.RealIP()
 
-	sql, _, _ := goqu.From("instances").Where(goqu.C("client_id").Eq(clientId)).Select("id").ToSQL()
+	sql, _, _ := goqu.From("instances").Where(goqu.C("client_id").Eq(authReq.ClientId)).Select("id").ToSQL()
 
 	row := h.DB.QueryRow(context.Background(), sql)
 	var instanceId int
@@ -65,8 +76,8 @@ func (h *instanceHandler) deviceAuthorization(c echo.Context) error {
 	expiration := time.Now().Add(10 * time.Minute).Unix()
 
 	data := map[string]interface{}{
-		"client_id":   clientId,
-		"scope":       scope,
+		"client_id":   authReq.ClientId,
+		"scope":       authReq.Scope,
 		"user_code":   userCode,
 		"device_code": deviceCode,
 		"expires_at":  expiration,
@@ -88,14 +99,14 @@ func (h *instanceHandler) deviceAuthorization(c echo.Context) error {
 			"message": err.Error(),
 		})
 	}
-	_, err = h.RDB.Expire(context.Background(), deviceCode, 10*time.Minute).Result()
+	_, err = h.RDB.Expire(context.Background(), deviceCode, 20*time.Minute).Result()
 	if err != nil {
 		return c.JSON(400, echo.Map{
 			"error":   "Failed to set expiration for device code",
 			"message": err.Error(),
 		})
 	}
-	_, err = h.RDB.Expire(context.Background(), userCode, 10*time.Minute).Result()
+	_, err = h.RDB.Expire(context.Background(), userCode, 20*time.Minute).Result()
 	if err != nil {
 		return c.JSON(400, echo.Map{
 			"error":   "Failed to set expiration for device code",
@@ -113,82 +124,71 @@ func (h *instanceHandler) deviceAuthorization(c echo.Context) error {
 	})
 }
 
+type tokenRequest struct {
+	GrantType  string `form:"grant_type"`
+	ClientId   string `form:"client_id"`
+	DeviceCode string `form:"device_code"`
+}
+
 func (h *instanceHandler) token(c echo.Context) error {
-	grantType := c.FormValue("grant_type")
-	clientId := c.FormValue("client_id")
-	deviceCode := c.FormValue("device_code")
-	if grantType != "urn:ietf:params:oauth:grant-type:device_code" {
-		return c.JSON(400, echo.Map{
-			"error":             "unsupported_grant_type",
-			"error_description": "Only 'urn:ietf:params:oauth:grant-type:device_code' is supported",
-		})
+	var tokenReq tokenRequest
+	if err := c.Bind(&tokenReq); err != nil {
+		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("invalid_request", "Bad request format"))
 	}
-	value, err := h.RDB.HGetAll(context.Background(), deviceCode).Result()
-	if err != nil {
-		return c.JSON(400, echo.Map{
-			"error":             "Invalid device_code",
-			"error_description": "Device code does not exist or has expired",
-		})
+
+	if tokenReq.GrantType == "" || tokenReq.ClientId == "" || tokenReq.DeviceCode == "" {
+		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("invalid_request", "grant_type, client_id, and device_code are required"))
 	}
-	if value["client_id"] != clientId {
-		return c.JSON(400, echo.Map{
-			"error":             "invalid_client",
-			"error_description": "Client ID does not match the device code",
-		})
+
+	if tokenReq.GrantType != "urn:ietf:params:oauth:grant-type:device_code" {
+		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("unsupported_grant_type", "Only 'urn:ietf:params:oauth:grant-type:device_code' is supported"))
 	}
-	if value["status"] == "pending" {
-		return c.JSON(400, echo.Map{
-			"error":             "authorization_pending",
-			"error_description": "User has not yet completed the authorization",
-		})
+
+	value, err := h.RDB.HGetAll(context.Background(), tokenReq.DeviceCode).Result()
+	if err != nil || len(value) == 0 {
+		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("invalid_grant", "Device code does not exist or has expired"))
 	}
-	if value["status"] == "denied" {
-		return c.JSON(400, echo.Map{
-			"error":             "access_denied",
-			"error_description": "User has denied the authorization",
-		})
+
+	if value["client_id"] != tokenReq.ClientId {
+		return c.JSON(http.StatusUnauthorized, helper.ErrorMessage("invalid_client", "Client ID does not match the device code"))
 	}
-	expiresAt, err := strconv.ParseInt(value["expires_at"], 10, 64)
-	if err != nil {
-		return c.JSON(400, echo.Map{
-			"error":             "invalid_token",
-			"error_description": "Invalid expiration time format",
-		})
-	}
-	if expiresAt < time.Now().Unix() {
-		return c.JSON(400, echo.Map{
-			"error":             "expired_token",
-			"error_description": "Device code has expired",
-		})
-	}
-	if value["status"] == "approved" {
+
+	switch value["status"] {
+	case "pending":
+		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("authorization_pending", "User has not yet completed the authorization"))
+	case "denied":
+		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("access_denied", "User has denied the authorization"))
+	case "approved":
+		expiresAt, err := strconv.ParseInt(value["expires_at"], 10, 64)
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, helper.ErrorMessage("invalid_grant", "Invalid expiration time format"))
+		}
+		if expiresAt < time.Now().Unix() {
+			return c.JSON(http.StatusBadRequest, helper.ErrorMessage("expired_token", "Device code has expired"))
+		}
+
 		accessToken := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 			"sub":   value["client_id"],
 			"scope": value["scope"],
 		})
 		token, err := accessToken.SignedString([]byte(h.Config.JWT_SECRET))
-
 		if err != nil {
-			return c.JSON(400, echo.Map{
-				"error":             "server_error",
-				"error_description": "Failed to generate access token",
-			})
+			return c.JSON(http.StatusInternalServerError, helper.ErrorMessage("server_error", "Failed to generate access token"))
 		}
-		c.Response().Header().Add("Pragma", "no-cache")
-		c.Response().Header().Add("Cache-Control", "no-store")
-		return c.JSON(200, echo.Map{
+
+		c.Response().Header().Set("Cache-Control", "no-store")
+		c.Response().Header().Set("Pragma", "no-cache")
+
+		return c.JSON(http.StatusOK, echo.Map{
 			"access_token": token,
 			"token_type":   "Bearer",
-			"expires_in":   0,
+			"expires_in":   3600, // typically 3600 seconds (1 hour)
 			"scope":        value["scope"],
 			"client_id":    value["client_id"],
 		})
+	default:
+		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("invalid_grant", "Device code is not in a valid state for token issuance"))
 	}
-
-	return c.JSON(400, echo.Map{
-		"error":             "invalid_request",
-		"error_description": "Invalid request",
-	})
 }
 
 type UserCode struct {
@@ -203,72 +203,72 @@ func (h *instanceHandler) VerifyUserCode(c echo.Context) error {
 	userCode := userCodeStruct.Code
 	value, err := h.RDB.HGetAll(context.Background(), userCode).Result()
 	if err != nil {
-		return c.JSON(400, echo.Map{
-			"error":             "Invalid user_code",
-			"error_description": "User code does not exist or has expired",
-		})
+		return c.JSON(400, helper.ErrorMessage("Invalid user_code", "User code does not exist or has expired"))
 	}
 	if value["status"] != "pending" {
-		return c.JSON(400, echo.Map{
-			"error":             "invalid_request",
-			"error_description": "User code has already been verified or denied",
-		})
+		return c.JSON(400, helper.ErrorMessage("Invalid user_code", "User code has already been used or is not pending"))
 	}
 	scopes := strings.Split(value["scope"], ",")
 	firstScope := scopes[0]
 	if strings.Split(firstScope, ":")[0] != "user" {
-		return c.JSON(400, echo.Map{
-			"error":             "invalid_scope",
-			"error_description": "Invalid scope",
-		})
+		return c.JSON(400, helper.ErrorMessage("invalid_scope", "User code does not have the correct scope"))
 	}
 	hostUsername := strings.Split(firstScope, ":")[1]
 	user := c.Get("user").(*jwt.Token)
 	claims := user.Claims.(*authentication.JwtCustomClaims)
 	userId := claims.Id
 	instanceId := value["instance_id"]
+
 	sql, _, err := goqu.From("instance_users").
 		Where(
 			goqu.C("instance_id").Eq(instanceId),
 			goqu.C("user_id").Eq(userId),
-			goqu.C("instance_host_username").Eq(hostUsername),
+			goqu.Or(goqu.C("instance_host_username").Eq(hostUsername), goqu.C("instance_host_username").Eq("*")),
 		).Select(goqu.COUNT("*")).ToSQL()
-	fmt.Println(sql)
+
 	row := h.DB.QueryRow(context.Background(), sql)
 	var count int
 	err = row.Scan(&count)
 	if err != nil {
-		_, err = h.RDB.HSet(context.Background(), userCode, "status", "denied").Result()
-		if err != nil {
-			return c.JSON(400, echo.Map{
-				"error":             "Failed to verify user code",
-				"error_description": err.Error(),
-			})
-		}
-		return c.JSON(400, echo.Map{
-			"error":             "Failed to verify user code",
-			"error_description": err.Error(),
-		})
+		_, redisErr := h.RDB.HSet(context.Background(), userCode, "status", "denied").Result()
+		return c.JSON(400, helper.ErrorMessage("Failed to verify user code", errors.Join(err, redisErr)))
 	}
 	if count == 0 {
-		return c.JSON(400, echo.Map{
-			"error":             "access_denied",
-			"error_description": "User does not have access to the specified instance",
-		})
+		sql, _, err = goqu.From("instance_roles").
+			Join(goqu.T("role_users"), goqu.On(
+				goqu.I("role_users.role_id").Eq(goqu.I("instance_roles.role_id")),
+				goqu.I("role_users.user_id").Eq(userId),
+			)).
+			Where(
+				goqu.I("instance_roles.instance_id").Eq(instanceId),
+				goqu.Or(
+					goqu.I("instance_roles.instance_host_username").Eq(hostUsername),
+					goqu.I("instance_roles.instance_host_username").Eq("*"),
+				),
+			).
+			Select(goqu.COUNT("*")).ToSQL()
+		row = h.DB.QueryRow(context.Background(), sql)
+		var roleCount int
+		err = row.Scan(&roleCount)
+		if err != nil {
+			_, redisErr := h.RDB.HSet(context.Background(), userCode, "status", "denied").Result()
+			return c.JSON(400, helper.ErrorMessage("Failed to verify user code", errors.Join(err, redisErr)))
+		}
+		if roleCount == 0 {
+			_, err = h.RDB.HSet(context.Background(), userCode, "status", "denied").Result()
+			if err != nil {
+				return c.JSON(400, helper.ErrorMessage("Failed to verify user code", err))
+			}
+			return c.JSON(400, helper.ErrorMessage("User code verification failed", "You do not have permission to access this instance"))
+		}
 	}
 	_, err = h.RDB.HSet(context.Background(), userCode, "status", "approved").Result()
 	if err != nil {
-		return c.JSON(400, echo.Map{
-			"error":             "Failed to verify user code",
-			"error_description": err.Error(),
-		})
+		return c.JSON(400, helper.ErrorMessage("Verified user code but failed to update status", err))
 	}
 	_, err = h.RDB.HSet(context.Background(), value["device_code"], "status", "approved").Result()
 	if err != nil {
-		return c.JSON(400, echo.Map{
-			"error":             "Failed to verify user code",
-			"error_description": err.Error(),
-		})
+		return c.JSON(400, helper.ErrorMessage("Verified user code but failed to update device code status", err))
 	}
 	return c.JSON(200, echo.Map{
 		"message": "User code verified successfully",

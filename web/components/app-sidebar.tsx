@@ -118,8 +118,8 @@ const data = {
 import { useState, useEffect } from "react";
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const [user, setUser] = useState({
-    name: "PlaceHolder User",
-    username: "PlaceHolder Username",
+    name: "",
+    username: "",
     avatar: "",
   });
   const generateGravatarUrl = (email: string): string => {

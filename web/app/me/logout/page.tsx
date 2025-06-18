@@ -9,9 +9,11 @@ export default function LogoutPage() {
   useEffect(() => {
     // Clear the JWT cookie
     document.cookie = "jwt=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;";
+    // redirect with timeout
+    setTimeout(() => {
+      router.push("/login");
+    }, 200); 
 
-    // Redirect to the login page
-    router.push("/users/login");
   }, []);
 
   return null; // Render nothing since this page is just for logout
