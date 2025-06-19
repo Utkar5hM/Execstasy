@@ -9,32 +9,31 @@ import (
 )
 
 func (h *instanceHandler) addInstanceHostUser(c echo.Context) error {
-	var instance ParamsIDStruct
-	err := (&echo.DefaultBinder{}).BindPathParams(c, &instance)
+	var instanceID ParamsIDStruct
+	err := (&echo.DefaultBinder{}).BindPathParams(c, &instanceID)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{
-			"error": "Invalid path parameters",
-		})
+		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("Invalid path parameters", err))
+	}
+	if err := h.Validator.Struct(instanceID); err != nil {
+		return c.JSON(400, helper.ErrorMessage("Input path parameters Validation failed", err))
 	}
 	var hostUser hostUsernameStruct
 	err = c.Bind(&hostUser)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{
-			"error": "Invalid request body",
-		})
+		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("Invalid request body", err))
 	}
-	if hostUser.Username == "" {
-		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("Host username is required", nil))
+	if err := h.Validator.Struct(hostUser); err != nil {
+		return c.JSON(400, helper.ErrorMessage("Input Validation failed", err))
 	}
 	sql, _, _ := goqu.Insert("instance_host_users").Rows(
 		goqu.Record{
-			"instance_id": instance.ID,
+			"instance_id": instanceID.ID,
 			"username":    hostUser.Username,
 		},
 	).ToSQL()
 	_, err = h.DB.Exec(c.Request().Context(), sql)
 	if err != nil {
-		return c.JSON(400, helper.ErrorMessage("Failed to add host user: ", err))
+		return c.JSON(400, helper.ErrorMessage("Failed to add host user", err))
 	}
 	return c.JSON(http.StatusOK, echo.Map{
 		"message": "Successfully added host user",
@@ -43,64 +42,30 @@ func (h *instanceHandler) addInstanceHostUser(c echo.Context) error {
 
 }
 
-type hostUsernameStruct struct {
-	Username string `json:"host_username"` // Match the path parameter name
-}
-
 func (h *instanceHandler) deleteInstanceHostUser(c echo.Context) error {
-	var instance ParamsIDStruct
-	err := (&echo.DefaultBinder{}).BindPathParams(c, &instance)
+	var instanceID ParamsIDStruct
+	err := (&echo.DefaultBinder{}).BindPathParams(c, &instanceID)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{
-			"error": "Invalid path parameters",
-		})
+		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("Invalid path parameters", err))
+	}
+	if err := h.Validator.Struct(instanceID); err != nil {
+		return c.JSON(400, helper.ErrorMessage("Input path parameters Validation failed", err))
 	}
 	var hostUser hostUsernameStruct
 	err = c.Bind(&hostUser)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{
-			"error": "Invalid request body",
-		})
+		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("Invalid request body", err))
 	}
-	if hostUser.Username == "" {
-		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("Host username is required", nil))
+	if err := h.Validator.Struct(hostUser); err != nil {
+		return c.JSON(400, helper.ErrorMessage("Input Validation failed", err))
 	}
-	sql, _, _ := goqu.From("instance_host_users").Where(goqu.C("instance_id").Eq(instance.ID), goqu.C("username").Eq(hostUser.Username)).Delete().ToSQL()
+	sql, _, _ := goqu.From("instance_host_users").Where(goqu.C("instance_id").Eq(instanceID.ID), goqu.C("username").Eq(hostUser.Username)).Delete().ToSQL()
 	_, err = h.DB.Exec(c.Request().Context(), sql)
 	if err != nil {
-		return c.JSON(400, helper.ErrorMessage("Failed to delete host user: ", err))
+		return c.JSON(400, helper.ErrorMessage("Failed to delete host user", err))
 	}
 	return c.JSON(200, echo.Map{
 		"status":  "success",
 		"message": "Successfully deleted host user",
 	})
 }
-
-// func (h *instanceHandler) getInstanceHostUsers(c echo.Context) error {
-// 	var instance ParamsIDStruct
-// 	err := (&echo.DefaultBinder{}).BindPathParams(c, &instance)
-// 	if err != nil || instance.ID <= 0 {
-// 		return c.JSON(http.StatusBadRequest, echo.Map{
-// 			"error": "Invalid path parameters",
-// 		})
-// 	}
-// 	sql, _, _ := goqu.From("instance_host_users").Where(
-// 		goqu.Ex{"instance_id": instance.ID},
-// 	).Select("username").ToSQL()
-// 	rows, err := h.DB.Query(c.Request().Context(), sql)
-// 	if err != nil {
-// 		return c.JSON(400, helper.ErrorMessage("Failed to fetch instance host users", err))
-// 	}
-// 	defer rows.Close()
-
-// 	var hostUsers []string
-// 	for rows.Next() {
-// 		var username string
-// 		if err := rows.Scan(&username); err != nil {
-// 			return c.JSON(500, helper.ErrorMessage("Failed to scan host user", err))
-// 		}
-// 		hostUsers = append(hostUsers, username)
-// 	}
-
-// 	return c.JSON(http.StatusOK, hostUsers)
-// }

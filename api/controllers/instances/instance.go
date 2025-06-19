@@ -1,8 +1,6 @@
 package instances
 
 import (
-	"fmt"
-	"log"
 	"net/http"
 
 	"github.com/Utkar5hM/Execstasy/api/controllers/authentication"
@@ -11,29 +9,6 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/labstack/echo/v4"
 )
-
-type Instances struct {
-	ID          int    `db:"id"`
-	Name        string `db:"name"`
-	HostAddress string `db:"host_address"`
-	Status      string `db:"status"`
-	CreatedBy   string `db:"created_by"`
-}
-
-type Instance struct {
-	ID          int      `db:"id"`
-	Name        string   `db:"name"`
-	HostAddress string   `db:"host_address"`
-	Status      string   `db:"status"`
-	CreatedBy   string   `db:"created_by"`
-	Description string   `db:"description"`
-	HostUsers   []string `db:"host_users"` // Assuming this is a slice of usernames
-	ClientID    string   `db:"client_id"`  // Assuming this is a string, adjust as necessary
-}
-
-type ParamsIDStruct struct {
-	ID uint64 `param:"id"` // Match the path parameter name
-}
 
 // id, name, host_address, status, created_by
 func (h *instanceHandler) getInstances(c echo.Context) error {
@@ -127,13 +102,6 @@ func (h *instanceHandler) getMyInstances(c echo.Context) error {
 	return c.JSON(http.StatusOK, instances)
 }
 
-type createInstanceStruct struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	HostAddress string `json:"HostAddress"`
-	Status      string `json:"status"`
-}
-
 func (h *instanceHandler) createInstance(c echo.Context) error {
 
 	user := c.Get("user").(*jwt.Token)
@@ -143,9 +111,9 @@ func (h *instanceHandler) createInstance(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("Invalid request body", err))
 	}
-	if instance.Name == "" ||
-		(instance.Status != "" && instance.Status != "active" && instance.Status != "disabled") {
-		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("Name and description are required fields", nil))
+
+	if err := h.Validator.Struct(instance); err != nil {
+		return c.JSON(400, helper.ErrorMessage("Input Validation failed", err))
 	}
 	sql, _, _ := goqu.Insert("instances").Rows(
 		goqu.Record{
@@ -175,14 +143,22 @@ func (h *instanceHandler) createInstance(c echo.Context) error {
 }
 
 func (h *instanceHandler) deleteInstance(c echo.Context) error {
-	id := c.Param("id")
-	sql, _, _ := goqu.From("instances").Where(goqu.C("id").Eq(id)).Delete().ToSQL()
-	_, err := h.DB.Exec(c.Request().Context(), sql)
+	var instanceID ParamsIDStruct
+	err := (&echo.DefaultBinder{}).BindPathParams(c, &instanceID)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("Invalid path parameters", err))
+	}
+	if err := h.Validator.Struct(instanceID); err != nil {
+		return c.JSON(400, helper.ErrorMessage("Input path parameters Validation failed", err))
+	}
+	sql, _, _ := goqu.From("instances").Where(goqu.C("id").Eq(instanceID.ID)).Delete().ToSQL()
+	_, err = h.DB.Exec(c.Request().Context(), sql)
 	if err != nil {
 		return c.JSON(400, helper.ErrorMessage("Failed to delete instance", err))
 	}
 	return c.JSON(200, echo.Map{
-		"status": "success",
+		"status":  "success",
+		"message": "Instance deleted successfully",
 	})
 }
 
@@ -195,14 +171,12 @@ func CensorClientID(clientID string) string {
 
 func (h *instanceHandler) getInstance(c echo.Context) error {
 	var instanceID ParamsIDStruct
-
-	// Bind path parameters using DefaultBinder
 	err := (&echo.DefaultBinder{}).BindPathParams(c, &instanceID)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("Invalid path parameters", err))
 	}
-	if instanceID.ID == 0 {
-		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("Instance ID is required", nil))
+	if err := h.Validator.Struct(instanceID); err != nil {
+		return c.JSON(400, helper.ErrorMessage("Input path parameters Validation failed", err))
 	}
 	sql, _, _ := goqu.From("instances").Join(
 		goqu.T("users"),
@@ -247,23 +221,14 @@ func (h *instanceHandler) getInstance(c echo.Context) error {
 	return c.JSON(http.StatusOK, instance)
 }
 
-type InstanceUser struct {
-	Id           int    `json:"id"`
-	Username     string `json:"username"`
-	Role         string `json:"role"`
-	Name         string `json:"name"`
-	HostUsername string `json:"host_username"`
-}
-
 func (h *instanceHandler) getInstanceUsers(c echo.Context) error {
-	var instance ParamsIDStruct
-
-	// Bind path parameters using DefaultBinder
-	err := (&echo.DefaultBinder{}).BindPathParams(c, &instance)
+	var instanceID ParamsIDStruct
+	err := (&echo.DefaultBinder{}).BindPathParams(c, &instanceID)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{
-			"error": "Invalid path parameters",
-		})
+		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("Invalid path parameters", err))
+	}
+	if err := h.Validator.Struct(instanceID); err != nil {
+		return c.JSON(400, helper.ErrorMessage("Input path parameters Validation failed", err))
 	}
 	sql, _, _ := goqu.From("instance_users").Join(
 		goqu.T("users"),
@@ -275,14 +240,12 @@ func (h *instanceHandler) getInstanceUsers(c echo.Context) error {
 		goqu.I("users.role"),
 		goqu.I("instance_users.instance_host_username"),
 	).Where(
-		goqu.I("instance_users.instance_id").Eq(instance.ID),
+		goqu.I("instance_users.instance_id").Eq(instanceID.ID),
 	).ToSQL()
 
 	rows, err := h.DB.Query(c.Request().Context(), sql)
 	if err != nil {
-		return c.JSON(400, echo.Map{
-			"error": "Failed to fetch instance users: " + err.Error(),
-		})
+		return c.JSON(400, helper.ErrorMessage("Failed to fetch instance users", err))
 	}
 	defer rows.Close()
 
@@ -290,7 +253,7 @@ func (h *instanceHandler) getInstanceUsers(c echo.Context) error {
 	for rows.Next() {
 		var user InstanceUser
 		if err := rows.Scan(&user.Id, &user.Name, &user.Username, &user.Role, &user.HostUsername); err != nil {
-			log.Fatalf("Failed to scan user: %v", err)
+			return c.JSON(http.StatusInternalServerError, helper.ErrorMessage("Failed to scan user", err))
 		}
 		users = append(users, user)
 	}
@@ -298,119 +261,26 @@ func (h *instanceHandler) getInstanceUsers(c echo.Context) error {
 	return c.JSON(http.StatusOK, users)
 }
 
-type InstanceUsernameStruct struct {
-	Username     string `json:"username"`      // Match the path parameter name
-	HostUsername string `json:"host_username"` // Match the body parameter name
-}
-
-func (h *instanceHandler) deleteInstanceUsers(c echo.Context) error {
-	var instance ParamsIDStruct
-	var user InstanceUsernameStruct
-	err := (&echo.DefaultBinder{}).BindPathParams(c, &instance)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{
-			"error": "Invalid path parameters",
-		})
-	}
-
-	err = (&echo.DefaultBinder{}).BindBody(c, &user)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{
-			"error": "Invalid body parameters",
-		})
-	}
-	if user.Username == "" || user.HostUsername == "" {
-		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("Username and host username are required", nil))
-	}
-	// Check if the user exists in the users table
-	sql, _, _ := goqu.From("users").Where(
-		goqu.Ex{"username": user.Username},
-	).Select(goqu.COUNT("*")).ToSQL()
-	var count int64
-	err = h.DB.QueryRow(c.Request().Context(), sql).Scan(&count)
-	if err != nil {
-		return c.JSON(http.StatusInternalServerError, helper.ErrorMessage("Failed to check existing user: ", err))
-	}
-	if count == 0 {
-		return c.JSON(http.StatusBadRequest, echo.Map{
-			"error":             "User does not exist",
-			"error_description": fmt.Sprintf("User with username %s does not exist", user.Username),
-		})
-	}
-	// Check if the user is associated with the instance
-	sql, _, _ = goqu.From("instance_users").Where(
-		goqu.Ex{"instance_id": instance.ID, "user_id": goqu.I("users.id"), "instance_host_username": user.HostUsername},
-	).Join(
-		goqu.T("users"),
-		goqu.On(goqu.Ex{"instance_users.user_id": goqu.I("users.id")}),
-	).Select(goqu.COUNT("*")).ToSQL()
-	var userCount int64
-	err = h.DB.QueryRow(c.Request().Context(), sql).Scan(&userCount)
-	if err != nil {
-		return c.JSON(http.StatusInternalServerError, helper.ErrorMessage("Failed to check existing instance user: ", err))
-	}
-	if userCount == 0 {
-		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("User is not associated with the instance", nil))
-	}
-	sql, _, _ = goqu.From("users").
-		Where(goqu.Ex{"username": user.Username}).
-		Select("id").
-		ToSQL()
-	var userID int64
-	err = h.DB.QueryRow(c.Request().Context(), sql).Scan(&userID)
-	if err != nil {
-		return c.JSON(http.StatusInternalServerError, helper.ErrorMessage("Failed to get user ID: ", err))
-	}
-	sql, _, _ = goqu.Delete("instance_users").
-		Where(goqu.Ex{
-			"instance_id":            instance.ID,
-			"user_id":                userID,
-			"instance_host_username": user.HostUsername,
-		}).
-		ToSQL()
-	_, err = h.DB.Exec(c.Request().Context(), sql)
-	if err != nil {
-		return c.JSON(http.StatusInternalServerError, helper.ErrorMessage("Failed to delete instance user: ", err))
-	}
-	return c.JSON(http.StatusOK, echo.Map{
-		"message": "Successfully deleted instance user.",
-		"status":  "success",
-	})
-}
-
-type InstanceRole struct {
-	Id           int    `json:"id"`
-	Name         string `json:"name"`
-	HostUsername string `json:"host_username"`
-}
-
-type IDUsernameStruct struct {
-	ID       uint64 `json:"id"`            // Match the path parameter name
-	Username string `json:"host_username"` // Match the body parameter name
-}
-
 func (h *instanceHandler) editInstance(c echo.Context) error {
-	var instance ParamsIDStruct
-	err := (&echo.DefaultBinder{}).BindPathParams(c, &instance)
+	var instanceID ParamsIDStruct
+	err := (&echo.DefaultBinder{}).BindPathParams(c, &instanceID)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{
-			"error": "Invalid path parameters",
-		})
+		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("Invalid path parameters", err))
+	}
+	if err := h.Validator.Struct(instanceID); err != nil {
+		return c.JSON(400, helper.ErrorMessage("Input path parameters Validation failed", err))
 	}
 
-	var instanceData Instance
+	var instanceData createInstanceStruct
 	err = c.Bind(&instanceData)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{
-			"error": "Invalid request body",
-		})
+		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("Invalid request body", err))
 	}
-	if instanceData.Name == "" ||
-		(instanceData.Status != "" && instanceData.Status != "active" && instanceData.Status != "disabled") {
-		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("Name and description are required fields", nil))
+	if err := h.Validator.Struct(instanceData); err != nil {
+		return c.JSON(400, helper.ErrorMessage("Invalid request body", err))
 	}
 	sql, _, _ := goqu.From("instances").
-		Where(goqu.C("id").Eq(instance.ID)).Update().Set(goqu.Record{
+		Where(goqu.C("id").Eq(instanceID.ID)).Update().Set(goqu.Record{
 		"name":         instanceData.Name,
 		"description":  instanceData.Description,
 		"host_address": instanceData.HostAddress,

@@ -25,7 +25,7 @@ func (h *roleHandler) hasRoleEditAccessFunc(c echo.Context) (*RoleEditAccessResu
 			Message:   "Invalid path parameters",
 		}, err
 	}
-	if roleID.ID == 0 {
+	if err := h.Validator.Struct(roleID); err != nil {
 		return &RoleEditAccessResult{
 			HasAccess: false,
 			Message:   "Role ID is required",

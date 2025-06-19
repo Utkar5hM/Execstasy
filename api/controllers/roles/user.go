@@ -10,11 +10,6 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-type AddUserRole struct {
-	Username string `json:"username"`
-	Role     string `json:"role"`
-}
-
 func (h *roleHandler) AddUserToRole(c echo.Context) error {
 	var roleID ParamsIDStruct
 
@@ -22,44 +17,19 @@ func (h *roleHandler) AddUserToRole(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("Invalid path parameters", err))
 	}
-	if roleID.ID == 0 {
-		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("Role ID is required", nil))
+	if err := h.Validator.Struct(roleID); err != nil {
+		return c.JSON(400, helper.ErrorMessage("Input path parameters Validation failed", err))
 	}
 	addUserRoleStruct := new(AddUserRole)
 	if err := c.Bind(addUserRoleStruct); err != nil {
 		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("Invalid request format", err))
 	}
-
-	if addUserRoleStruct.Username == "" {
-		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("Username is required", nil))
-	}
-	if addUserRoleStruct.Role != "admin" && addUserRoleStruct.Role != "standard" {
-		addUserRoleStruct.Role = "standard"
+	if err := h.Validator.Struct(addUserRoleStruct); err != nil {
+		return c.JSON(400, helper.ErrorMessage("Invalid request body", err))
 	}
 	// Get user from JWT token
 	user := c.Get("user").(*jwt.Token)
 	claims := user.Claims.(*authentication.JwtCustomClaims)
-
-	if claims.Role != "admin" {
-		// check if the claims.user is present in role and has role_members_role = 'admin'
-		sqlCheckAdmin, _, _ := goqu.From("role_users").
-			Join(goqu.T("roles"), goqu.On(goqu.Ex{
-				"role_users.role_id": goqu.I("roles.id"),
-			})).
-			Where(goqu.Ex{
-				"role_users.user_id": claims.Id,
-				"role_users.role":    "admin",
-				"roles.id":           roleID.ID,
-			}).
-			Select(goqu.COUNT("role_users.user_id")).ToSQL()
-		var isAdmin int
-		if err := h.DB.QueryRow(c.Request().Context(), sqlCheckAdmin).Scan(&isAdmin); err != nil {
-			return c.JSON(http.StatusInternalServerError, helper.ErrorMessage("Database error", err))
-		}
-		if isAdmin == 0 {
-			return c.JSON(http.StatusForbidden, helper.ErrorMessage("You do not have permission to add users to roles", nil))
-		}
-	}
 
 	// Get user ID from username
 	var userId uint64
@@ -109,48 +79,22 @@ func (h *roleHandler) AddUserToRole(c echo.Context) error {
 }
 
 func (h *roleHandler) DeleteUserFromRole(c echo.Context) error {
+
 	var roleID ParamsIDStruct
 
 	err := (&echo.DefaultBinder{}).BindPathParams(c, &roleID)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("Invalid path parameters", err))
 	}
-	if roleID.ID == 0 {
-		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("Role ID is required", nil))
+	if err := h.Validator.Struct(roleID); err != nil {
+		return c.JSON(400, helper.ErrorMessage("Input path parameters Validation failed", err))
 	}
 	deleteUserRoleStruct := new(AddUserRole)
 	if err := c.Bind(deleteUserRoleStruct); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid request format"})
+		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("Invalid request format", err))
 	}
-
-	if deleteUserRoleStruct.Username == "" {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Role ID and Username are required"})
-	}
-
-	// Get user from JWT token
-	user := c.Get("user").(*jwt.Token)
-	claims := user.Claims.(*authentication.JwtCustomClaims)
-
-	if claims.Role != "admin" {
-		// check if the claims.user is present in role and has role_members_role = 'admin'
-		sqlCheckAdmin, _, _ := goqu.From("role_users").
-			Join(goqu.T("roles"), goqu.On(goqu.Ex{
-				"role_users.role_id": goqu.I("roles.id"),
-			})).
-			Where(goqu.Ex{
-				"role_users.user_id": claims.Id,
-				"role_users.role":    "admin",
-				"roles.id":           roleID.ID,
-			}).
-			Select(goqu.COUNT("role_users.user_id")).ToSQL()
-
-		var isAdmin int
-		if err := h.DB.QueryRow(c.Request().Context(), sqlCheckAdmin).Scan(&isAdmin); err != nil {
-			return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Database error"})
-		}
-		if isAdmin == 0 {
-			return c.JSON(http.StatusForbidden, echo.Map{"error": "You do not have permission to remove users from roles"})
-		}
+	if err := h.Validator.Struct(deleteUserRoleStruct); err != nil {
+		return c.JSON(400, helper.ErrorMessage("Invalid request body", err))
 	}
 
 	// Get user ID from username
@@ -196,14 +140,15 @@ func (h *roleHandler) DeleteUserFromRole(c echo.Context) error {
 }
 
 func (h *roleHandler) getRoleUsers(c echo.Context) error {
+
 	var roleID ParamsIDStruct
 
 	err := (&echo.DefaultBinder{}).BindPathParams(c, &roleID)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("Invalid path parameters", err))
 	}
-	if roleID.ID == 0 {
-		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("Role ID is required", nil))
+	if err := h.Validator.Struct(roleID); err != nil {
+		return c.JSON(400, helper.ErrorMessage("Input path parameters Validation failed", err))
 	}
 	// Query to get users in the role
 	sql, _, _ := goqu.From("role_users").

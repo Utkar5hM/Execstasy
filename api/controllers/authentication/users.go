@@ -1,11 +1,14 @@
 package authentication
 
 import (
+	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/Utkar5hM/Execstasy/api/utils/helper"
 	"github.com/doug-martin/goqu/v9"
+	_ "github.com/doug-martin/goqu/v9/dialect/postgres"
+
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/labstack/echo/v4"
 )
@@ -119,8 +122,8 @@ func (h *AuthHandler) getMe(c echo.Context) error {
 }
 
 type updateMeRequest struct {
-	Username string `json:"username"`
-	Name     string `json:"name"`
+	Username string `json:"username" validate:"required,alphanumunicode,min=2,max=50"`
+	Name     string `json:"name" validate:"required,min=1,max=100,usernameregex"`
 }
 
 func (h *AuthHandler) updateMe(c echo.Context) error {
@@ -131,11 +134,15 @@ func (h *AuthHandler) updateMe(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(400, helper.ErrorMessage("Invalid request body", err))
 	}
+	if err := h.Validator.Struct(req); err != nil {
+		return c.JSON(400, helper.ErrorMessage("Validation failed", err))
+	}
 	if req.Username == "" || req.Name == "" {
 		return c.JSON(400, helper.ErrorMessage("Username and Name cannot be empty", nil))
 	}
 	// Build the SQL query to update the user
-	sql, _, _ := goqu.Update("users").
+	dialect := goqu.Dialect("postgres")
+	sql, args, _ := dialect.Update("users").
 		Where(goqu.I("id").Eq(claims.Id)).
 		Set(
 			goqu.Record{
@@ -144,9 +151,10 @@ func (h *AuthHandler) updateMe(c echo.Context) error {
 			},
 		).Returning(
 		"id", "username", "name", "role", "email",
-	).ToSQL()
+	).Prepared(true).ToSQL()
 	// Execute the update query
-	row := h.DB.QueryRow(c.Request().Context(), sql)
+	fmt.Println(sql)
+	row := h.DB.QueryRow(c.Request().Context(), sql, args...)
 	var id uint64
 	var username, name, role, email string
 	if err := row.Scan(&id, &username, &name, &role, &email); err != nil {
@@ -183,7 +191,7 @@ func (h *AuthHandler) updateMe(c echo.Context) error {
 }
 
 type JSONIDStruct struct {
-	ID uint64 `json:"id"` // Match the path parameter name
+	ID uint64 `json:"id" validate:"required,gt=0"` // Match the path parameter name
 }
 
 func (h *AuthHandler) updateRole(c echo.Context) error {
@@ -193,6 +201,9 @@ func (h *AuthHandler) updateRole(c echo.Context) error {
 	var userID JSONIDStruct
 	if err := c.Bind(&userID); err != nil {
 		return c.JSON(400, helper.ErrorMessage("Invalid request body", err))
+	}
+	if err := h.Validator.Struct(userID); err != nil {
+		return c.JSON(400, helper.ErrorMessage("Validation failed", err))
 	}
 	if userID.ID == 0 {
 		return c.JSON(400, helper.ErrorMessage("User ID cannot be empty", nil))

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/Utkar5hM/Execstasy/api/utils/config"
+	"github.com/Utkar5hM/Execstasy/api/utils/helper"
 	"github.com/doug-martin/goqu/v9"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/labstack/echo/v4"
@@ -45,24 +46,30 @@ func (h *AuthHandler) GoogleCallback(c echo.Context) error {
 
 	// Check if user exists in the database
 	sql_fetched_user := &User{}
-	sql, _, _ := goqu.From("users").Where(goqu.C("email").Eq(userInfo.Email)).Select("name", "username", "email", "role", "id").ToSQL()
+	sql, _, _ := goqu.From("users").Where(goqu.C("email").Eq(userInfo.Email)).Select(goqu.COUNT("*")).ToSQL()
+	var count int
 	row := h.DB.QueryRow(c.Request().Context(), sql)
-	err = row.Scan(&sql_fetched_user.Name, &sql_fetched_user.Username, &sql_fetched_user.Email, &sql_fetched_user.Role, &sql_fetched_user.Id)
+	err = row.Scan(&count)
 	if err != nil {
-		// User does not exist, create a new user
-		_, err = h.DB.Exec(c.Request().Context(),
-			"INSERT INTO users (username, name, email, role) VALUES ($1, $2, $3, $4)",
-			userInfo.Email, userInfo.Name, userInfo.Email, "user")
-		if err != nil {
-			return err
-		}
-		sql, _, _ = goqu.From("users").Where(goqu.C("email").Eq(userInfo.Email)).Select("name", "username", "email", "role", "id").ToSQL()
-		row := h.DB.QueryRow(c.Request().Context(), sql)
+		return c.JSON(http.StatusInternalServerError, helper.ErrorMessage("Failed to check user existence", err))
+	}
+	if count == 0 {
+		sql, _, _ = goqu.Insert("users").
+			Cols("username", "name", "email", "role").
+			Vals(goqu.Vals{userInfo.Email, userInfo.Name, userInfo.Email, "user"}).
+			Returning("name", "username", "email", "role", "id").ToSQL()
+		row = h.DB.QueryRow(c.Request().Context(), sql)
 		err = row.Scan(&sql_fetched_user.Name, &sql_fetched_user.Username, &sql_fetched_user.Email, &sql_fetched_user.Role, &sql_fetched_user.Id)
 		if err != nil {
-			return c.JSON(http.StatusInternalServerError, echo.Map{
-				"error": "Failed to create user",
-			})
+			return c.JSON(http.StatusInternalServerError, helper.ErrorMessage("Failed to fetch user after creation", err))
+		}
+	} else {
+		sql, _, _ = goqu.From("users").
+			Where(goqu.C("email").Eq(userInfo.Email)).Select("name", "username", "email", "role", "id").ToSQL()
+		row = h.DB.QueryRow(c.Request().Context(), sql)
+		err = row.Scan(&sql_fetched_user.Name, &sql_fetched_user.Username, &sql_fetched_user.Email, &sql_fetched_user.Role, &sql_fetched_user.Id)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, helper.ErrorMessage("Failed to fetch user", err))
 		}
 	}
 

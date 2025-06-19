@@ -10,6 +10,8 @@ import (
 	"github.com/Utkar5hM/Execstasy/api/controllers/instances"
 	"github.com/Utkar5hM/Execstasy/api/controllers/roles"
 	"github.com/Utkar5hM/Execstasy/api/utils/config"
+	"github.com/Utkar5hM/Execstasy/api/utils/validations"
+	"github.com/go-playground/validator/v10"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/labstack/echo/v4"
@@ -45,7 +47,11 @@ func main() {
 		Password: cfg.REDIS_PASSWORD, // no password set
 		DB:       cfg.REDIS_DB,       // use default DB
 	})
-
+	validate := validator.New(validator.WithRequiredStructEnabled())
+	validate.RegisterValidation("usernameregex", validations.UserNameValidator)
+	validate.RegisterValidation("nameregex", validations.NameValidator)
+	validate.RegisterValidation("linuxuser", validations.LinuxUserValidator)
+	validate.RegisterValidation("scopelinuxuser", validations.ScopeLinuxUserValidator)
 	e := echo.New()
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
@@ -54,14 +60,14 @@ func main() {
 	// e.Use(middleware.Secure())
 	r := e.Group("/api")
 	authGroup := r.Group("/users")
-	authentication.UseSubroute(authGroup, dbpool, cfg)
+	authentication.UseSubroute(authGroup, dbpool, cfg, validate)
 
 	instanceGroup := r.Group("/instances")
-	instances.UseSubroute(instanceGroup, dbpool, rdb, cfg)
+	instances.UseSubroute(instanceGroup, dbpool, rdb, cfg, validate)
 	OAuthServerGroup := r.Group("/oauth")
-	instances.UseOAuthServerSubroute(OAuthServerGroup, dbpool, rdb, cfg)
+	instances.UseOAuthServerSubroute(OAuthServerGroup, dbpool, rdb, cfg, validate)
 	rolesGroup := r.Group("/roles")
-	roles.UseSubroute(rolesGroup, dbpool, cfg)
+	roles.UseSubroute(rolesGroup, dbpool, cfg, validate)
 	e.Static("/static/", "static")
 	e.Logger.Fatal(e.Start(":4000"))
 

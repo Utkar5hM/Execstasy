@@ -35,18 +35,13 @@ func generateUserCode() (string, error) {
 	return string(code), nil
 }
 
-type deviceAuthorizationRequest struct {
-	ClientId string `form:"client_id"`
-	Scope    string `form:"scope"`
-}
-
 func (h *instanceHandler) deviceAuthorization(c echo.Context) error {
 	var authReq deviceAuthorizationRequest
 	if err := c.Bind(&authReq); err != nil {
-		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("invalid_request", "Bad request format"))
+		return c.JSON(http.StatusBadRequest, helper.AuthErrorMessage("invalid_request", "Bad request format"))
 	}
-	if authReq.ClientId == "" || authReq.Scope == "" {
-		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("invalid_request", "client_id and scope are required"))
+	if err := h.Validator.Struct(authReq); err != nil {
+		return c.JSON(400, helper.AuthErrorMessage("invalid_request", err))
 	}
 	clientIP := c.RealIP()
 
@@ -56,20 +51,14 @@ func (h *instanceHandler) deviceAuthorization(c echo.Context) error {
 	var instanceId int
 	err := row.Scan(&instanceId)
 	if err != nil {
-		return c.JSON(400, echo.Map{
-			"error":   "Invalid client_id",
-			"message": "Instance with the specified client_id does not exist",
-		})
+		return c.JSON(400, helper.AuthErrorMessage("Invalid client_id", "Instance with the specified client_id does not exist"))
 	}
 
 	deviceCode := uuid.New().String()
 	userCode, err := generateUserCode()
 
 	if err != nil {
-		return c.JSON(400, echo.Map{
-			"error":   "Failed to generate user code",
-			"message": err.Error(),
-		})
+		return c.JSON(400, helper.AuthErrorMessage("Failed to generate user code", err))
 	}
 
 	expiration := time.Now().Add(10 * time.Minute).Unix()
@@ -86,24 +75,15 @@ func (h *instanceHandler) deviceAuthorization(c echo.Context) error {
 	}
 	_, err = h.RDB.HSet(c.Request().Context(), deviceCode, data).Result()
 	if err != nil {
-		return c.JSON(400, echo.Map{
-			"error":   "Failed to store device code",
-			"message": err.Error(),
-		})
+		return c.JSON(400, helper.AuthErrorMessage("Failed to store device code", err))
 	}
 	_, err = h.RDB.HSet(c.Request().Context(), userCode, data).Result()
 	if err != nil {
-		return c.JSON(400, echo.Map{
-			"error":   "Failed to store user code",
-			"message": err.Error(),
-		})
+		return c.JSON(400, helper.AuthErrorMessage("Failed to store user code", err))
 	}
 	_, err = h.RDB.Expire(c.Request().Context(), deviceCode, 20*time.Minute).Result()
 	if err != nil {
-		return c.JSON(400, echo.Map{
-			"error":   "Failed to set expiration for device code",
-			"message": err.Error(),
-		})
+		return c.JSON(400, helper.AuthErrorMessage("Failed to set expiration for device code", err))
 	}
 	_, err = h.RDB.Expire(c.Request().Context(), userCode, 20*time.Minute).Result()
 	if err != nil {
@@ -123,47 +103,36 @@ func (h *instanceHandler) deviceAuthorization(c echo.Context) error {
 	})
 }
 
-type tokenRequest struct {
-	GrantType  string `form:"grant_type"`
-	ClientId   string `form:"client_id"`
-	DeviceCode string `form:"device_code"`
-}
-
 func (h *instanceHandler) token(c echo.Context) error {
 	var tokenReq tokenRequest
 	if err := c.Bind(&tokenReq); err != nil {
-		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("invalid_request", "Bad request format"))
+		return c.JSON(http.StatusBadRequest, helper.AuthErrorMessage("invalid_request", "Bad request format"))
 	}
-
-	if tokenReq.GrantType == "" || tokenReq.ClientId == "" || tokenReq.DeviceCode == "" {
-		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("invalid_request", "grant_type, client_id, and device_code are required"))
-	}
-
-	if tokenReq.GrantType != "urn:ietf:params:oauth:grant-type:device_code" {
-		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("unsupported_grant_type", "Only 'urn:ietf:params:oauth:grant-type:device_code' is supported"))
+	if err := h.Validator.Struct(tokenReq); err != nil {
+		return c.JSON(400, helper.AuthErrorMessage("invalid_request", err))
 	}
 
 	value, err := h.RDB.HGetAll(c.Request().Context(), tokenReq.DeviceCode).Result()
 	if err != nil || len(value) == 0 {
-		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("invalid_grant", "Device code does not exist or has expired"))
+		return c.JSON(http.StatusBadRequest, helper.AuthErrorMessage("invalid_grant", "Device code does not exist or has expired"))
 	}
 
 	if value["client_id"] != tokenReq.ClientId {
-		return c.JSON(http.StatusUnauthorized, helper.ErrorMessage("invalid_client", "Client ID does not match the device code"))
+		return c.JSON(http.StatusUnauthorized, helper.AuthErrorMessage("invalid_client", "Client ID does not match the device code"))
 	}
 
 	switch value["status"] {
 	case "pending":
-		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("authorization_pending", "User has not yet completed the authorization"))
+		return c.JSON(http.StatusBadRequest, helper.AuthErrorMessage("authorization_pending", "User has not yet completed the authorization"))
 	case "denied":
-		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("access_denied", "User has denied the authorization"))
+		return c.JSON(http.StatusBadRequest, helper.AuthErrorMessage("access_denied", "User has denied the authorization"))
 	case "approved":
 		expiresAt, err := strconv.ParseInt(value["expires_at"], 10, 64)
 		if err != nil {
-			return c.JSON(http.StatusBadRequest, helper.ErrorMessage("invalid_grant", "Invalid expiration time format"))
+			return c.JSON(http.StatusBadRequest, helper.AuthErrorMessage("invalid_grant", "Invalid expiration time format"))
 		}
 		if expiresAt < time.Now().Unix() {
-			return c.JSON(http.StatusBadRequest, helper.ErrorMessage("expired_token", "Device code has expired"))
+			return c.JSON(http.StatusBadRequest, helper.AuthErrorMessage("expired_token", "Device code has expired"))
 		}
 
 		accessToken := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
@@ -172,7 +141,7 @@ func (h *instanceHandler) token(c echo.Context) error {
 		})
 		token, err := accessToken.SignedString([]byte(h.Config.JWT_SECRET))
 		if err != nil {
-			return c.JSON(http.StatusInternalServerError, helper.ErrorMessage("server_error", "Failed to generate access token"))
+			return c.JSON(http.StatusInternalServerError, helper.AuthErrorMessage("server_error", "Failed to generate access token"))
 		}
 
 		c.Response().Header().Set("Cache-Control", "no-store")
@@ -186,18 +155,17 @@ func (h *instanceHandler) token(c echo.Context) error {
 			"client_id":    value["client_id"],
 		})
 	default:
-		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("invalid_grant", "Device code is not in a valid state for token issuance"))
+		return c.JSON(http.StatusBadRequest, helper.AuthErrorMessage("invalid_grant", "Device code is not in a valid state for token issuance"))
 	}
-}
-
-type UserCode struct {
-	Code string `json:"user_code"`
 }
 
 func (h *instanceHandler) VerifyUserCode(c echo.Context) error {
 	userCodeStruct := new(UserCode)
 	if err := c.Bind(userCodeStruct); err != nil {
-		return c.String(http.StatusBadRequest, "bad request")
+		return c.String(http.StatusBadRequest, "Invalid request body")
+	}
+	if err := h.Validator.Struct(userCodeStruct); err != nil {
+		return c.JSON(400, helper.ErrorMessage("Invalid request body", err))
 	}
 	userCode := userCodeStruct.Code
 	value, err := h.RDB.HGetAll(c.Request().Context(), userCode).Result()

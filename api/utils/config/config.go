@@ -5,6 +5,7 @@ import (
 	// this will automatically load your .env file:
 	"strconv"
 
+	"github.com/go-playground/validator/v10"
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/joho/godotenv/autoload"
 	"github.com/redis/go-redis/v9"
@@ -22,9 +23,10 @@ type Config struct {
 }
 
 type Handler struct {
-	DB     *pgxpool.Pool
-	Config *Config
-	RDB    *redis.Client
+	DB        *pgxpool.Pool
+	Config    *Config
+	RDB       *redis.Client
+	Validator *validator.Validate
 }
 
 func LoadConfig() (*Config, error) {

@@ -4,21 +4,11 @@ import (
 	"net/http"
 
 	"github.com/Utkar5hM/Execstasy/api/controllers/authentication"
-	"github.com/Utkar5hM/Execstasy/api/utils/config"
 	"github.com/Utkar5hM/Execstasy/api/utils/helper"
 	"github.com/doug-martin/goqu/v9"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/labstack/echo/v4"
 )
-
-type roleHandler struct {
-	config.Handler
-}
-
-type CreateRole struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
-}
 
 func (h *roleHandler) createRole(c echo.Context) error {
 
@@ -28,8 +18,8 @@ func (h *roleHandler) createRole(c echo.Context) error {
 	if err := c.Bind(roleStruct); err != nil {
 		return c.String(http.StatusBadRequest, "bad request")
 	}
-	if roleStruct.Name == "" {
-		return c.JSON(400, helper.ErrorMessage("Role name is required", nil))
+	if err := h.Validator.Struct(roleStruct); err != nil {
+		return c.JSON(400, helper.ErrorMessage("Invalid request body", err))
 	}
 
 	sql, _, _ := goqu.Insert("roles").Rows(
@@ -51,18 +41,6 @@ func (h *roleHandler) createRole(c echo.Context) error {
 	})
 }
 
-type ParamsIDStruct struct {
-	ID uint64 `param:"id"` // Match the path parameter name
-}
-type Role struct {
-	ID          int    `db:"id"`
-	Name        string `db:"name"`
-	Description string `db:"description"`
-	CreatedBy   string `db:"createdBy"`
-	CreatedAt   string `db:"createdAt"`
-	UpdatedAt   string `db:"updatedAt"`
-}
-
 func (h *roleHandler) getRole(c echo.Context) error {
 	var roleID ParamsIDStruct
 
@@ -70,8 +48,8 @@ func (h *roleHandler) getRole(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("Invalid path parameters", err))
 	}
-	if roleID.ID == 0 {
-		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("Role ID is required", nil))
+	if err := h.Validator.Struct(roleID); err != nil {
+		return c.JSON(400, helper.ErrorMessage("Input path parameters Validation failed", err))
 	}
 	sql, _, _ := goqu.From("roles").
 		Join(
@@ -173,8 +151,8 @@ func (h *roleHandler) deleteRole(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("Invalid path parameters", err))
 	}
-	if roleID.ID == 0 {
-		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("Role ID is required", nil))
+	if err := h.Validator.Struct(roleID); err != nil {
+		return c.JSON(400, helper.ErrorMessage("Input path parameters Validation failed", err))
 	}
 	// Check if the role exists before attempting to delete
 	sqlCheck, _, _ := goqu.From("roles").Where(goqu.Ex{"id": roleID.ID}).Select(goqu.COUNT("*")).ToSQL()
@@ -199,19 +177,6 @@ func (h *roleHandler) deleteRole(c echo.Context) error {
 	})
 }
 
-func (h *roleHandler) isAdminMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
-	return func(c echo.Context) error {
-		user := c.Get("user").(*jwt.Token)
-		claims := user.Claims.(*authentication.JwtCustomClaims)
-		if claims.Role != "admin" {
-			return c.JSON(403, echo.Map{
-				"message": "You are not authorized for this action",
-			})
-		}
-		return next(c)
-	}
-}
-
 func (h *roleHandler) editRole(c echo.Context) error {
 	var roleID ParamsIDStruct
 
@@ -219,15 +184,16 @@ func (h *roleHandler) editRole(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("Invalid path parameters", err))
 	}
-	if roleID.ID == 0 {
-		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("Role ID is required", nil))
+
+	if err := h.Validator.Struct(roleID); err != nil {
+		return c.JSON(400, helper.ErrorMessage("Input path parameters Validation failed", err))
 	}
 	var roleStruct CreateRole
 	if err := c.Bind(&roleStruct); err != nil {
 		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("Failed to bind request body", err))
 	}
-	if roleStruct.Name == "" {
-		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("Role name is required", nil))
+	if err := h.Validator.Struct(roleStruct); err != nil {
+		return c.JSON(400, helper.ErrorMessage("Invalid request body", err))
 	}
 	// check if role exists
 	sqlCheck, _, _ := goqu.From("roles").Where(goqu.Ex{"id": roleID.ID}).Select(goqu.COUNT("*")).ToSQL()
