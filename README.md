@@ -28,6 +28,11 @@ copy app.env.example to app.env and setup all the required environment variables
 make dev
 ```
 
+4.  **Start Prod Environment**
+
+```sh
+make prod
+```
 -----------
 
 **Linux PAM Module:**

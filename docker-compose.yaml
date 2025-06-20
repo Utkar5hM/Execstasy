@@ -2,27 +2,23 @@ services:
   api:
     build: 
       context: ./api
-      dockerfile: Dockerfile.dev
+      dockerfile: Dockerfile
     container_name: execstasy-api
     depends_on:
       - redis
     restart: always
     env_file:
       - "app.env"
-    volumes:
-      - "./api:/app"
     environment:
-      - API_DEBUG="TRUE"
+      - API_DEBUG="FALSE"
   web:
     build: 
       context: ./web
-      dockerfile: Dockerfile.dev
+      dockerfile: Dockerfile
     container_name: execstasy-web
     depends_on:
       - redis
     restart: always
-    volumes:
-      - "./web:/app"
     # env_file:
       # - web/.env
   redis:

@@ -153,7 +153,7 @@ export default function RoleViewPage() {
     }
 
     fetchRole();
-  }, [id, roleInfo]);
+  }, [id]);
 
   async function deleteRole(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();

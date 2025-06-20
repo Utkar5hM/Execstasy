@@ -35,18 +35,23 @@ func (h *roleHandler) hasRoleEditAccessFunc(c echo.Context) (*RoleEditAccessResu
 	user := c.Get("user").(*jwt.Token)
 	claims := user.Claims.(*authentication.JwtCustomClaims)
 	// check if user is admin with query or is part of the role with role_users.role_users_role = 'admin'
-	sql, _, _ := goqu.From("role_users").
-		Join(goqu.T("users"), goqu.On(goqu.Ex{
+	sql, _, _ := goqu.From("users").
+		LeftJoin(goqu.T("role_users"), goqu.On(goqu.Ex{
 			"role_users.user_id": goqu.I("users.id"),
 		})).
-		Where(goqu.Or(goqu.Ex{
-			"role_users.role_id": roleID.ID,
-			"role_users.role":    "admin",
-			"users.id":           claims.Id,
-		}, goqu.Ex{
-			"users.role": "admin",
-			"users.id":   claims.Id,
-		})).Select(goqu.COUNT("*")).ToSQL()
+		Where(goqu.And(
+			goqu.I("users.id").Eq(claims.Id),
+			goqu.Or(
+				goqu.Ex{
+					"role_users.role_id": roleID.ID,
+					"role_users.role":    "admin",
+				},
+				goqu.Ex{
+					"users.role": "admin",
+				},
+			),
+		)).
+		Select(goqu.COUNT("*")).ToSQL()
 	var count int
 	if err := h.DB.QueryRow(c.Request().Context(), sql).Scan(&count); err != nil {
 		return &RoleEditAccessResult{
