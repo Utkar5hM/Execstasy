@@ -116,6 +116,8 @@ const data = {
   ],
 }
 import { useState, useEffect } from "react";
+import Link from "next/link";
+import { AuthJwtPayload } from "@/utils/ResponseTypes";
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const [user, setUser] = useState({
     name: "",
@@ -135,11 +137,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           ?.split("=")[1];
 
         if (jwt) {
-          const decodedToken = jwtDecode(jwt);
+          const decodedToken = jwtDecode<AuthJwtPayload>(jwt);
           setUser({
-            name: decodedToken.name || "Default User",
-            username: decodedToken.username || "Default Email",
-            avatar: generateGravatarUrl(decodedToken.email),
+            name: decodedToken.name || "",
+            username: decodedToken.username || "",
+            avatar: generateGravatarUrl(decodedToken.email || ""),
           });
         }
       }
@@ -157,10 +159,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               asChild
               className="data-[slot=sidebar-menu-button]:!p-1.5"
             >
-              <a href="/">
+              <Link href="/">
                 <IconTerminal2 className="!size-5" />
                 <span className="text-base font-semibold">ExecStasy</span>
-              </a>
+                </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

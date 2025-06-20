@@ -35,6 +35,40 @@ import { decodeJwt } from "@/utils/userToken";
 
 const decodedToken = decodeJwt();
 export default function RoleEditPage() {
+	const [statusDialogOpen, setStatusDialogOpen] = useState(false); // State to control the status dialog
+	const [dialogDescription, setDialogDescription] = useState(""); // State to store the dialog description
+	const [dialogStatus, setDialogStatus] = useState<"success" | "error" | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const id = useParams()?.id;
+  useEffect(() => {
+    async function fetchInstance() {
+      try {
+        const response = await apiClient.get(`/api/roles/view/${id}`);
+        if (response.status === 200) {
+          const data = response.data as InstanceViewResponse;
+          form.reset({
+            name: data.Name || "",
+            Description: data.Description || ""
+          });
+          setLoading(false)
+        }
+      } catch (error) {
+        setError("Failed to fetch role data: " + (error instanceof Error ? error.message : ""));
+      }
+    }
+    if (id) fetchInstance();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+
+	const form = useForm<z.infer<typeof formSchema>>({
+		resolver: zodResolver(formSchema),
+		defaultValues: {
+			name: "",
+			Description: "",
+		},
+	  })
+
   if (decodedToken?.role !== "admin") {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -45,43 +79,10 @@ export default function RoleEditPage() {
       </div>
     );
   }
-  const params = useParams();
-  const id = params?.id;
-	const [statusDialogOpen, setStatusDialogOpen] = useState(false); // State to control the status dialog
-	const [dialogDescription, setDialogDescription] = useState(""); // State to store the dialog description
-	const [dialogStatus, setDialogStatus] = useState<"success" | "error" | null>(null);
-  const [loading, setLoading] = useState(true);
-
-	const form = useForm<z.infer<typeof formSchema>>({
-		resolver: zodResolver(formSchema),
-		defaultValues: {
-			name: "",
-			Description: "",
-		},
-	  })
     type InstanceViewResponse = {
       Name: string;
       Description: string;
     };
-    useEffect(() => {
-      async function fetchInstance() {
-        try {
-          const response = await apiClient.get(`/api/roles/view/${id}`);
-          if (response.status === 200) {
-            const data = response.data as InstanceViewResponse;
-            form.reset({
-              name: data.Name || "",
-              Description: data.Description || ""
-            });
-            setLoading(false)
-          }
-        } catch (error) {
-          // Optionally handle error
-        }
-      }
-      if (id) fetchInstance();
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [id]);
     type RoleResponse = {
       message: string;
       error_description?: string;
@@ -99,7 +100,7 @@ export default function RoleEditPage() {
 		  }
 		} catch (error) {
 		  setDialogStatus("error");
-		  setDialogDescription("An unexpected error occurred.");
+		  setDialogDescription("An unexpected error occurred." + (error instanceof Error ? ` ${error.message}` : ""));
 		} finally {
 		  setStatusDialogOpen(true);
 		}
@@ -118,6 +119,14 @@ export default function RoleEditPage() {
           </div>
             );
       }
+
+  if (error) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="text-red-500">{error}</div>
+      </div>
+    );
+  }
   return (
 	<>
 	<div className="p-8"><div className="flex items-baseline gap-x-4 pb-6">

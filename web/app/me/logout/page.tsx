@@ -14,7 +14,7 @@ export default function LogoutPage() {
       router.push("/login");
     }, 200); 
 
-  }, []);
+  }, [router]);
 
   return null; // Render nothing since this page is just for logout
 }

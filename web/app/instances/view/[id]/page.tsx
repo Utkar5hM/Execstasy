@@ -9,10 +9,9 @@ import {
 import { Separator } from "@/components/ui/separator"
 import { Button } from "@/components/ui/button"
 import { ExecTable } from "@/components/execTable";
-import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton";
 import * as React from "react"
-import { CellContext, ColumnDef, Row } from "@tanstack/react-table";
+import { CellContext, ColumnDef } from "@tanstack/react-table";
 import {
   Dialog,
   DialogClose,
@@ -74,16 +73,13 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import Link from "next/link";
-import { DefaultStatusResponse, APIRoles, APIInstanceUsers, APIInstanceRoles } from "@/utils/ResponseTypes";
+import { DefaultStatusResponse, APIRoles, APIInstanceUsers, APIInstanceRoles, APIInstanceView } from "@/utils/ResponseTypes";
 
 import {decodeJwt} from "@/utils/userToken"
 import { IconChevronLeft } from "@tabler/icons-react";
 const decodedToken = decodeJwt();
 export default function InstanceViewPage() {
-  const router = useRouter();
-	const params = useParams(); // Access the params object
-	const id = params?.id; // Extract the `id` parameter
-  const [instance, setInstance] = useState<any>(null);
+  const [instance, setInstance] = useState<APIInstanceView| undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [loading2, setLoading2] = useState(true);
   const [loading3, setLoading3] = useState(true);
@@ -103,6 +99,8 @@ export default function InstanceViewPage() {
   const [deleteHostUsername, setDeleteHostUsername] = useState<string | null>(null);
   const [deleteRoleID, setDeleteRoleID] = useState<number | null>(null);
   const [roleDeleteDialogOpen, setRoleDeleteDialogOpen] = useState(false);
+  const router = useRouter();
+	const id = useParams()?.id; // Access the params object
 
 
 
@@ -112,7 +110,7 @@ export default function InstanceViewPage() {
         const response = await apiClient.get<APIRoles[] | DefaultStatusResponse>("/api/roles");
         // Transform the API data to { value, label }
       if (response.status === 200 && Array.isArray(response.data)){
-        const roles = (response.data).map((role: any) => ({
+        const roles = (response.data as APIRoles[]).map((role: APIRoles) => ({
           value: String(role.id),
           label: role.name,
         }));
@@ -167,7 +165,7 @@ export default function InstanceViewPage() {
         router.push("/instances");
       }, 0);
     }
-  }, [statusDialogOpen, instanceDeleted]);
+  }, [statusDialogOpen, instanceDeleted, router]);
   async function onSubmitRole(data: z.infer<typeof RoleFormSchema>) {
     setRoleDialogOpen(false);
     try{
@@ -191,8 +189,13 @@ export default function InstanceViewPage() {
   useEffect(() => {
     async function fetchInstance() {
       try {
-        const response = await apiClient.get(`/api/instances/view/${id}`);
-        setInstance(response.data);
+        const response = await apiClient.get<APIInstanceView>(`/api/instances/view/${id}`);
+        if (response.status ===200){
+          setInstance(response.data);
+        } else {
+          setError("Failed to load instance.");
+          setInstance(undefined); // Clear instance data on error
+        }
       } catch (err) {
         console.error("Failed to fetch instance:", err);
         setError("Failed to load instance.");
@@ -207,7 +210,7 @@ export default function InstanceViewPage() {
   async function deleteInstance(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     try {
-      const response = await apiClient.delete(`/api/instances/${id}`, null);
+      const response = await apiClient.delete<DefaultStatusResponse>(`/api/instances/${id}`, null);
       if (response.status === 200) {
         setDialogDescription("Instance deleted successfully.");
         setInstanceDeleted(true); // Set instanceDeleted to true
@@ -215,7 +218,7 @@ export default function InstanceViewPage() {
         setDialogDescription("Failed to delete instance.");
       }
     } catch (error) {
-      setDialogDescription("An unexpected error occurred while deleting the instance.");
+      setDialogDescription("An unexpected error occurred while deleting the instance." + ` Error: ${error}`);
     } finally {
       setDialogOpen(false);
       setStatusDialogOpen(true); // Optionally show a status dialog
@@ -282,7 +285,7 @@ export default function InstanceViewPage() {
         const handleRoleDelete = async (e: React.FormEvent) => {
           e.preventDefault();
           try {
-            let response = await apiClient.delete<DefaultStatusResponse>(`/api/instances/roles/${id}`, {
+            const response = await apiClient.delete<DefaultStatusResponse>(`/api/instances/roles/${id}`, {
                host_username: deleteHostUsername,
                id: deleteRoleID,
               }
@@ -381,7 +384,7 @@ export default function InstanceViewPage() {
         const handleDelete = async (e: React.FormEvent) => {
           e.preventDefault();
           try {
-            let response = await apiClient.delete<DefaultStatusResponse>(`/api/instances/users/${id}`, {
+            const response = await apiClient.delete<DefaultStatusResponse>(`/api/instances/users/${id}`, {
                host_username: deleteHostUsername,
                username: deleteUsername,
               }
@@ -458,17 +461,6 @@ export default function InstanceViewPage() {
     
   ];
 
-
-
-
-  if (error) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <div className="text-red-500">{error}</div>
-      </div>
-    );
-  }
-
   if (loading || loading2 || loading3) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -482,7 +474,13 @@ export default function InstanceViewPage() {
       </div>
         );
   }
-
+  if (error || !instance) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="text-red-500">{error}</div>
+      </div>
+    );
+  }
   return (<>
     <div className="p-8"><div className="flex items-baseline gap-x-4">
           <h1 className="scroll-m-20 text-4xl font-extrabold tracking-tight text-balance">
@@ -601,7 +599,7 @@ Go Back to Instances</Button>
                 <Input placeholder="root" {...field} />
               </FormControl>
               <FormDescription>
-                This is the user on the host, type "*" to allow all users on the host.
+                This is the user on the host, type &quot;*&quot; to allow all users on the host.
               </FormDescription>
               <FormMessage />
             </FormItem>
@@ -707,7 +705,7 @@ Go Back to Instances</Button>
                 <Input placeholder="root" {...field} />
               </FormControl>
               <FormDescription>
-                This is the user on the host, type "*" to allow all users on the host.
+                This is the user on the host, type &quot;*&quot; to allow all users on the host.
               </FormDescription>
               <FormMessage />
             </FormItem>

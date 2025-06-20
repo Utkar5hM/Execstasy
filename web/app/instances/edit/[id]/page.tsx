@@ -50,7 +50,6 @@ import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogT
 import { DialogDescription, DialogTitle } from "@radix-ui/react-dialog"
 import Link from "next/link"
 import { useParams } from "next/navigation"
-import { Separator } from "@/components/ui/separator"
 import { ExecTable } from "@/components/execTable"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Row } from "@tanstack/react-table"; // adjust import if needed
@@ -60,18 +59,6 @@ import { decodeJwt } from "@/utils/userToken";
 
 const decodedToken = decodeJwt();
 export default function InstanceEditPage() {
-  if (decodedToken?.role !== "admin") {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4">Access Denied</h1>
-          <p className="text-gray-600">You do not have permission to view this page.</p>
-        </div>
-      </div>
-    );
-  }
-  const params = useParams();
-  const id = params?.id;
 	const [statusDialogOpen, setStatusDialogOpen] = useState(false); // State to control the status dialog
 	const [dialogDescription, setDialogDescription] = useState(""); // State to store the dialog description
 	const [dialogStatus, setDialogStatus] = useState<"success" | "error" | null>(null);
@@ -83,17 +70,68 @@ export default function InstanceEditPage() {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedHostUsername, setSelectedHostUsername] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const UserFormSchema = z.object({
     host_username: z.string().min(1, {
       message: "Host Username must be at least 2 characters.",
     }),
   })
+
   const formUser = useForm<z.infer<typeof UserFormSchema>>({
     resolver: zodResolver(UserFormSchema),
     defaultValues: {
       host_username: "*",
     },
   })
+  const id = useParams()?.id;
+  useEffect(() => {
+    async function fetchInstance() {
+      try {
+        const response = await apiClient.get(`/api/instances/view/${id}`);
+        if (response.status === 200) {
+          const data = response.data as InstanceViewResponse;
+          const status = data.Status === "active" || data.Status === "disabled" ? data.Status : "active";
+          form.reset({
+            name: data.Name || "",
+            Description: data.Description || "",
+            Status: status,
+            HostAddress: data.HostAddress || "",
+          });setUsersData(
+            (data.HostUsers || [])
+              .map((u: string) => ({ host_username: u }))
+          );
+          setLoading(false)
+        }
+      } catch (error) {
+        console.error("Error fetching instance data:", error);
+        setError("Failed to fetch instance data: " + error);
+        // Optionally handle error
+      }
+    }
+    if (id) fetchInstance();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+
+	const form = useForm<z.infer<typeof formSchema>>({
+		resolver: zodResolver(formSchema),
+		defaultValues: {
+			name: "",
+			Description: "",
+			Status: "active",
+			HostAddress: "",
+		},
+	  })
+
+  if (decodedToken?.role !== "admin") {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold mb-4">Access Denied</h1>
+          <p className="text-gray-600">You do not have permission to view this page.</p>
+        </div>
+      </div>
+    );
+  }
   const Userscolumns = [
     {
       accessorKey: "host_username",
@@ -109,7 +147,7 @@ export default function InstanceEditPage() {
         const handleDelete = async (e: React.FormEvent) => {
           e.preventDefault();
           try {
-            let response = await apiClient.delete<DefaultStatusResponse>(`/api/instances/hostUsers/${id}`, {
+            const response = await apiClient.delete<DefaultStatusResponse>(`/api/instances/hostUsers/${id}`, {
                host_username: selectedHostUsername 
               }
             );
@@ -123,6 +161,7 @@ export default function InstanceEditPage() {
             // Optionally refresh users list or show a dialog
           } catch (error) {
             console.error("Failed to delete host user:", error);
+            setError("Failed to delete host user: " + error);
           }
           setDialogOpen(false);
           setSelectedHostUsername(null);
@@ -174,15 +213,6 @@ export default function InstanceEditPage() {
       }
     }
   ];
-	const form = useForm<z.infer<typeof formSchema>>({
-		resolver: zodResolver(formSchema),
-		defaultValues: {
-			name: "",
-			Description: "",
-			Status: "active",
-			HostAddress: "",
-		},
-	  })
     type InstanceViewResponse = {
       Name: string;
       Description: string;
@@ -190,31 +220,6 @@ export default function InstanceEditPage() {
       HostAddress?: string;
       HostUsers: Array<string>;
     };
-    useEffect(() => {
-      async function fetchInstance() {
-        try {
-          const response = await apiClient.get(`/api/instances/view/${id}`);
-          if (response.status === 200) {
-            const data = response.data as InstanceViewResponse;
-            const status = data.Status === "active" || data.Status === "disabled" ? data.Status : "active";
-            form.reset({
-              name: data.Name || "",
-              Description: data.Description || "",
-              Status: status,
-              HostAddress: data.HostAddress || "",
-            });setUsersData(
-              (data.HostUsers || [])
-                .map((u: string) => ({ host_username: u }))
-            );
-            setLoading(false)
-          }
-        } catch (error) {
-          // Optionally handle error
-        }
-      }
-      if (id) fetchInstance();
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [id]);
     type InstanceResponse = {
       message: string;
       client_id: string;
@@ -256,27 +261,35 @@ export default function InstanceEditPage() {
 		    setdialogClientID("");
 		  }
 		} catch (error) {
-		  setDialogStatus("error");
-		  setDialogDescription("An unexpected error occurred.");
+		  setDialogStatus("error");  
+      setDialogDescription(
+        error instanceof Error ? error.message : String(error)
+      );
 		  setdialogClientID("");
 		} finally {
 		  setStatusDialogOpen(true);
 		}
 	  }
-
-      if (loading ) {
-        return (
-          <div className="flex h-screen items-center justify-center">
-            <div className="flex items-center space-x-4">
-              <Skeleton className="h-12 w-12 rounded-full" />
-              <div className="space-y-2">
-                <Skeleton className="h-4 w-[250px]" />
-                <Skeleton className="h-4 w-[200px]" />
-              </div>
-            </div>
+  if (loading ) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="flex items-center space-x-4">
+          <Skeleton className="h-12 w-12 rounded-full" />
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-[250px]" />
+            <Skeleton className="h-4 w-[200px]" />
           </div>
-            );
-      }
+        </div>
+      </div>
+        );
+  }
+  if (error) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="text-red-500">{error}</div>
+      </div>
+    );
+  }
   return (
 	<>
 	<div className="p-8"><div className="flex items-baseline gap-x-4 pb-6">
@@ -448,7 +461,7 @@ Go Back to Instance</Button>
                 <Input placeholder="root" {...field} />
               </FormControl>
               <FormDescription>
-                This is the user on the host, "*" to allow all users on the host.
+              This is the user on the host, &quot;*&quot; to allow all users on the host.
               </FormDescription>
               <FormMessage />
             </FormItem>

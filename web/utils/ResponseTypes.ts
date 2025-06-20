@@ -5,7 +5,36 @@ export type DefaultStatusResponse = {
 	error_description?: string;
   };
 
+  export type AuthJwtPayload = {
+	name?: string;
+	username?: string;
+	email?: string;
+	// add other custom claims if needed
+  };
+  export type APIRole = {
+	ID: number;
+	Name: string;
+	Description: string;
+	CreatedBy: string;
+	CreatedAt: string;
+	UpdatedAt: string;
+  }
 
+  export type APIInstances = {
+			ID: number;
+			name: string;
+			status: string;
+		  } 
+export type APIInstanceView = {
+	ID: number;
+	Name: string;
+	Status: string;
+	CreatedBy: string;
+	Description: string;
+	HostAddress: string;
+	HostUsers: string[] | null;
+	ClientID: string;
+}
   export type APIRoles = {
 	created_at: string;
 	created_by: string;

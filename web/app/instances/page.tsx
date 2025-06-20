@@ -13,6 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import Link from "next/link";
 
 import {decodeJwt} from "@/utils/userToken"
+import { APIInstances, DefaultStatusResponse } from "@/utils/ResponseTypes";
 const decodedToken = decodeJwt();
 
 export default function TaskPage() {
@@ -22,20 +23,17 @@ export default function TaskPage() {
 
   useEffect(() => {
     async function fetchTasks() {
-      try {
-        type Task = {
-          ID: number;
-          name: string;
-          status: string;
-        };
-        const response = await apiClient.get<Task[]>("/api/instances");
-        // const transformedData = response.data.map((task: any) => {
-        //   const { ID, ...rest } = task; // Extract "ID" and the rest of the object
-        //   return { id: ID, ...rest }; // Rename "ID" to "id"
-        // });
-  2
+      try {;
+        const response = await apiClient.get<APIInstances[] | DefaultStatusResponse>("/api/instances");
+        if (response.status ===200 ){
+          
         const tasks = z.array(taskSchema).parse(response.data);
         setTasks(tasks);
+        } else {
+          const data = response.data as DefaultStatusResponse;
+          console.error("Failed to fetch tasks:", data.error, data.error_description);
+          setError("Failed to load tasks." + data.error + "\n" + data.error_description);
+        }
       } catch (err) {
         console.error("Failed to fetch tasks:", err);
         setError("Failed to load tasks.");
@@ -62,7 +60,11 @@ export default function TaskPage() {
   }
 
   if (error) {
-    return <div>Error: {error}</div>;
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="text-red-500">{error}</div>
+      </div>
+    );
   }
 
   return (

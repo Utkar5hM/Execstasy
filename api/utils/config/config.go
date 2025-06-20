@@ -14,12 +14,14 @@ import (
 )
 
 type Config struct {
-	DATABASE_URL      string
-	JWT_SECRET        string
-	GoogleLoginConfig oauth2.Config
-	REDIS_DB_URL      string
-	REDIS_PASSWORD    string
-	REDIS_DB          int
+	DATABASE_URL        string
+	JWT_SECRET          string
+	GoogleLoginConfig   oauth2.Config
+	REDIS_DB_URL        string
+	REDIS_PASSWORD      string
+	REDIS_DB            int
+	GitlabLoginConfig   oauth2.Config
+	GitlabLoginEndpoint string
 }
 
 type Handler struct {
@@ -30,6 +32,11 @@ type Handler struct {
 }
 
 func LoadConfig() (*Config, error) {
+
+	GITLAB_BASEURL := os.Getenv("GITLAB_BASEURL")
+	if GITLAB_BASEURL == "" {
+		GITLAB_BASEURL = "https://gitlab.com"
+	}
 	cfg := &Config{
 		DATABASE_URL: os.Getenv("DATABASE_URL"),
 		JWT_SECRET:   os.Getenv("JWT_SECRET"),
@@ -44,6 +51,17 @@ func LoadConfig() (*Config, error) {
 		REDIS_DB_URL:   os.Getenv("REDIS_URL"),
 		REDIS_PASSWORD: os.Getenv("REDIS_PASSWORD"),
 		REDIS_DB:       func() int { v, _ := strconv.Atoi(os.Getenv("REDIS_DB")); return v }(),
+		GitlabLoginConfig: oauth2.Config{
+			RedirectURL:  "http://localhost:4000/api/users/oauth/gitlab/callback",
+			ClientID:     os.Getenv("GITLAB_CLIENT_ID"),
+			ClientSecret: os.Getenv("GITLAB_CLIENT_SECRET"),
+			Scopes:       []string{"read_user"},
+			Endpoint: oauth2.Endpoint{
+				AuthURL:  GITLAB_BASEURL + "/oauth/authorize",
+				TokenURL: GITLAB_BASEURL + "/oauth/token",
+			},
+		},
+		GitlabLoginEndpoint: GITLAB_BASEURL,
 	}
 
 	return cfg, nil

@@ -1,6 +1,6 @@
 "use client"
 
-import { IconProgressCheck, IconMail, type Icon } from "@tabler/icons-react"
+import { IconProgressCheck, type Icon } from "@tabler/icons-react"
 import Link from "next/link";
 
 import {

@@ -6,7 +6,7 @@ import { z } from "zod"
 import { Textarea } from "@/components/ui/textarea"
 import { IconChevronLeft } from '@tabler/icons-react';
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button"
 import {
   Form,
@@ -34,6 +34,20 @@ import { decodeJwt } from "@/utils/userToken";
 
 const decodedToken = decodeJwt();
 export default function InstanceEditPage() {
+	const [statusDialogOpen, setStatusDialogOpen] = useState(false); // State to control the status dialog
+	const [dialogDescription, setDialogDescription] = useState(""); // State to store the dialog description
+	const [dialogStatus, setDialogStatus] = useState<"success" | "error" | null>(null);
+  const [roleId, setRoleId] = useState<number | null>(null); // State to store the role ID if needed
+  const id = useParams()?.id;
+
+	const form = useForm<z.infer<typeof formSchema>>({
+		resolver: zodResolver(formSchema),
+		defaultValues: {
+			name: "",
+			Description: "",
+		},
+	  })
+
   if (decodedToken?.role !== "admin") {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -44,20 +58,6 @@ export default function InstanceEditPage() {
       </div>
     );
   }
-  const params = useParams();
-  const id = params?.id;
-	const [statusDialogOpen, setStatusDialogOpen] = useState(false); // State to control the status dialog
-	const [dialogDescription, setDialogDescription] = useState(""); // State to store the dialog description
-	const [dialogStatus, setDialogStatus] = useState<"success" | "error" | null>(null);
-  const [roleId, setRoleId] = useState<number | null>(null); // State to store the role ID if needed
-
-	const form = useForm<z.infer<typeof formSchema>>({
-		resolver: zodResolver(formSchema),
-		defaultValues: {
-			name: "",
-			Description: "",
-		},
-	  })
     type RoleResponse = {
       message: string;
       error_description?: string;
@@ -77,7 +77,7 @@ export default function InstanceEditPage() {
 		  }
 		} catch (error) {
 		  setDialogStatus("error");
-		  setDialogDescription("An unexpected error occurred.");
+		  setDialogDescription("An unexpected error occurred." + error);
 		} finally {
 		  setStatusDialogOpen(true);
 		}

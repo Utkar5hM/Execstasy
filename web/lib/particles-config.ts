@@ -40,11 +40,11 @@ const particlesConfig: RecursivePartial<IOptions> = {
 		  "mode": "push"
 		},
 		"onDiv": {
-		  "selectors": {},
-		  "enable": false,
-		  "mode": {},
-		  "type": "circle"
-		},
+			"selectors": [],
+			"enable": false,
+			"mode": [],
+			"type": "circle"
+			},
 		"onHover": {
 		  "enable": true,
 		  "mode": "repulse",
@@ -223,7 +223,7 @@ const particlesConfig: RecursivePartial<IOptions> = {
 		"close": true,
 		"fill": true,
 		"options": {},
-		"type": {}
+		"type": ""
 	  },
 	  "groups": {},
 	  "move": {

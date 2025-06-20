@@ -52,16 +52,6 @@ import { CreateInstanceResponse, DefaultStatusResponse } from "@/utils/ResponseT
 
 const decodedToken = decodeJwt();
 export default function InstanceAddPage() {
-  if (decodedToken?.role !== "admin") {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4">Access Denied</h1>
-          <p className="text-gray-600">You do not have permission to view this page.</p>
-        </div>
-      </div>
-    );
-  }
 	const [statusDialogOpen, setStatusDialogOpen] = useState(false); // State to control the status dialog
 	const [dialogDescription, setDialogDescription] = useState(""); // State to store the dialog description
 	const [dialogStatus, setDialogStatus] = useState<"success" | "error" | null>(null);
@@ -76,6 +66,16 @@ export default function InstanceAddPage() {
 			HostAddress: "",
 		},
 	  })
+  if (decodedToken?.role !== "admin") {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold mb-4">Access Denied</h1>
+          <p className="text-gray-600">You do not have permission to view this page.</p>
+        </div>
+      </div>
+    );
+  }
 	 
 	  async function onSubmit(values: z.infer<typeof formSchema>) {
 		try {
@@ -94,7 +94,7 @@ export default function InstanceAddPage() {
 		  }
 		} catch (error) {
 		  setDialogStatus("error");
-		  setDialogDescription("An unexpected error occurred.");
+		  setDialogDescription("An unexpected error occurred: "+ error);
 		  setdialogClientID("");
 		} finally {
 		  setStatusDialogOpen(true);

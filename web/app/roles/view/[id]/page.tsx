@@ -4,9 +4,6 @@ import { useParams, useRouter } from "next/navigation";
 import { apiClient } from "@/utils/apiClient";
 import {
   BadgeCheckIcon,
-  CheckCircle,
-  ChevronsUpDown,
-  CircleOff,
 } from "lucide-react"
 import { Separator } from "@/components/ui/separator"
 import { Button } from "@/components/ui/button"
@@ -14,7 +11,7 @@ import { ExecTable } from "@/components/execTable";
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton";
 import * as React from "react"
-import { CellContext, ColumnDef, Row } from "@tanstack/react-table";
+import { CellContext, ColumnDef } from "@tanstack/react-table";
 import {
   Dialog,
   DialogClose,
@@ -59,7 +56,7 @@ const UserFormSchema = z.object({
 
 
 import Link from "next/link";
-import { APIRolesAccess, APIRoleUsers, DefaultStatusResponse } from "@/utils/ResponseTypes";
+import { APIRole, APIRolesAccess, APIRoleUsers, DefaultStatusResponse } from "@/utils/ResponseTypes";
 import { decodeJwt } from "@/utils/userToken";
 import { IconChevronLeft } from "@tabler/icons-react";
 
@@ -69,7 +66,7 @@ export default function RoleViewPage() {
   const router = useRouter();
 	const params = useParams(); // Access the params object
 	const id = params?.id; // Extract the `id` parameter
-  const [roleInfo, setRoleInfo] = useState<any>(null);
+  const [roleInfo, setRoleInfo] = useState<APIRole | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [loading2, setLoading2] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -136,16 +133,16 @@ export default function RoleViewPage() {
         router.push("/roles");
       }, 0);
     }
-  }, [statusDialogOpen, instanceDeleted]);
+  }, [statusDialogOpen, instanceDeleted, router]);
   useEffect(() => {
     async function fetchRole() {
       try {
-        const response = await apiClient.get(`/api/roles/view/${id}`);
-        setRoleInfo(response.data);
-        if (roleInfo) {
-          console.log(roleInfo.Name);
+        const response = await apiClient.get<APIRole | DefaultStatusResponse>(`/api/roles/view/${id}`);
+        if (response.status ===200){
+          setRoleInfo(response.data as APIRole);
         } else {
-          console.log("Role is null or undefined");
+          const data = response.data as DefaultStatusResponse;
+          setError("Failed to fetch role: " + data.error + "\n" + data.error_description);
         }
       } catch (err) {
         console.error("Failed to fetch role:", err);
@@ -156,20 +153,20 @@ export default function RoleViewPage() {
     }
 
     fetchRole();
-  }, [id]);
+  }, [id, roleInfo]);
 
   async function deleteRole(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     try {
-      const response = await apiClient.delete(`/api/roles/${id}`, null);
+      const response = await apiClient.delete<DefaultStatusResponse>(`/api/roles/${id}`, null);
       if (response.status === 200) {
         setDialogDescription("Role deleted successfully.");
         setInstanceDeleted(true); // Set instanceDeleted to true
       } else {
-        setDialogDescription("Failed to delete instance.");
+        setDialogDescription(response.data.error + " : " + response.data.error_description);
       }
     } catch (error) {
-      setDialogDescription("An unexpected error occurred while deleting the instance.");
+      setDialogDescription("An unexpected error occurred while deleting the instance." + error);
     } finally {
       setDialogOpen(false);
       setStatusDialogOpen(true); // Optionally show a status dialog
@@ -232,7 +229,7 @@ export default function RoleViewPage() {
         const handleDelete = async (e: React.FormEvent) => {
           e.preventDefault();
           try {
-            let response = await apiClient.delete<DefaultStatusResponse>(`/api/roles/users/${id}`, {
+            const response = await apiClient.delete<DefaultStatusResponse>(`/api/roles/users/${id}`, {
                username: deleteUsername,
               }
             );
@@ -318,7 +315,7 @@ export default function RoleViewPage() {
         );
   }
 
-  if (error) {
+  if (error || !roleInfo) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="text-red-500">{error}</div>

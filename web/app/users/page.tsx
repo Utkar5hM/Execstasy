@@ -10,22 +10,15 @@ import {
   getFilteredRowModel,
   getPaginationRowModel,
   getSortedRowModel,
-  SortingState,
   useReactTable,
-  VisibilityState,
 } from "@tanstack/react-table"
-import { ArrowUpDown, BadgeCheckIcon, ChevronDown,  MoreHorizontal } from "lucide-react"
+import {  BadgeCheckIcon, ChevronDown   } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import Link from "next/link"
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
@@ -39,7 +32,6 @@ import {
 } from "@/components/ui/table";
 import { apiClient } from "@/utils/apiClient";
 import { Skeleton } from "@/components/ui/skeleton";
-import { DataTableColumnHeader } from "../instances/components/data-table-column-header";
 
 export type User = {
   id: number;
@@ -117,7 +109,7 @@ const columns: ColumnDef<User>[] = [
             setDialogDescription(`${response.data.error}: ${response.data.error_description}`);
           }
         }catch (error) {
-          setDialogDescription("An unexpected error occurred.");
+          setDialogDescription("An unexpected error occurred." + (error instanceof Error ? ` ${error.message}` : ""));
           setStatusDialogOpen(true);
         } finally {
           setStatusDialogOpen(true);
@@ -168,8 +160,6 @@ const columns: ColumnDef<User>[] = [
     fetchUsers();
   }, []);
 
-const [sorting, setSorting] = React.useState<SortingState>([]);
-
 const table = useReactTable({
   data,
   columns,
@@ -183,6 +173,7 @@ const table = useReactTable({
   getFilteredRowModel: getFilteredRowModel(), // Add filtered row model
 });
 
+
 if (loading) {
   return (
     <div className="flex h-screen items-center justify-center">
@@ -195,6 +186,13 @@ if (loading) {
       </div>
     </div>
       );
+}
+if (error) {
+  return (
+    <div className="flex h-screen items-center justify-center">
+      <div className="text-red-500">{error}</div>
+    </div>
+  );
 }
   return (
     <>

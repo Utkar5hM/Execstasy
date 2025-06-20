@@ -3,7 +3,6 @@
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
-import { Textarea } from "@/components/ui/textarea"
 import { IconChevronLeft } from '@tabler/icons-react';
 
 import { useEffect, useState } from "react";
@@ -39,6 +38,7 @@ export default function InstanceEditPage() {
 	const [dialogDescription, setDialogDescription] = useState(""); // State to store the dialog description
 	const [dialogStatus, setDialogStatus] = useState<"success" | "error" | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
 	const form = useForm<z.infer<typeof formSchema>>({
 		resolver: zodResolver(formSchema),
@@ -65,6 +65,7 @@ export default function InstanceEditPage() {
           }
         } catch (error) {
           // Optionally handle error
+          setError("Failed to fetch user data." + (error instanceof Error ? ` ${error.message}` : ""));
         }
       }
       fetchInstance();
@@ -74,6 +75,7 @@ export default function InstanceEditPage() {
       message: string;
       error_description?: string;
     };
+
 	  async function onSubmit(values: z.infer<typeof formSchema>) {
 		try {
 		  const response = await apiClient.put(`/api/users/me`, values);
@@ -87,24 +89,31 @@ export default function InstanceEditPage() {
 		  }
 		} catch (error) {
 		  setDialogStatus("error");
-		  setDialogDescription("An unexpected error occurred.");
+		  setDialogDescription("Failed to update profile." + (error instanceof Error ? ` ${error.message}` : ""));
 		} finally {
 		  setStatusDialogOpen(true);
 		}
 	  }
-      if (loading ) {
-        return (
-          <div className="flex h-screen items-center justify-center">
-            <div className="flex items-center space-x-4">
-              <Skeleton className="h-12 w-12 rounded-full" />
-              <div className="space-y-2">
-                <Skeleton className="h-4 w-[250px]" />
-                <Skeleton className="h-4 w-[200px]" />
-              </div>
-            </div>
+  if (loading ) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="flex items-center space-x-4">
+          <Skeleton className="h-12 w-12 rounded-full" />
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-[250px]" />
+            <Skeleton className="h-4 w-[200px]" />
           </div>
-            );
-      }
+        </div>
+      </div>
+        );
+  }
+  if (error) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="text-red-500">{error}</div>
+      </div>
+    );
+  }
   return (
 	<>
 	<div className="p-8"><div className="flex items-baseline gap-x-4 pb-6">

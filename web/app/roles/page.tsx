@@ -10,22 +10,16 @@ import {
   getFilteredRowModel,
   getPaginationRowModel,
   getSortedRowModel,
-  SortingState,
   useReactTable,
-  VisibilityState,
 } from "@tanstack/react-table"
-import { ArrowUpDown, ChevronDown,  MoreHorizontal } from "lucide-react"
+import { ChevronDown } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
@@ -39,7 +33,6 @@ import {
 } from "@/components/ui/table";
 import { apiClient } from "@/utils/apiClient";
 import { Skeleton } from "@/components/ui/skeleton";
-import { DataTableColumnHeader } from "../instances/components/data-table-column-header";
 import { IconUserCheck } from "@tabler/icons-react";
 
 export type Role = {
@@ -154,15 +147,13 @@ export default function RolesPage() {
         setData(response.data); // Update the data state with fetched roles
       } catch (err) {
         console.error("Failed to fetch roles:", err);
-        setError("Failed to load roles.");
+        setError("Failed to load roles." + (err instanceof Error ? err.message : "Unknown error"));
       } finally {
         setLoading(false);
       }
     }
     fetchRoles();
   }, []);
-
-const [sorting, setSorting] = React.useState<SortingState>([]);
 
 
 const table = useReactTable({
@@ -177,7 +168,6 @@ const table = useReactTable({
   getSortedRowModel: getSortedRowModel(),
   getFilteredRowModel: getFilteredRowModel(), // Add filtered row model
 });
-
 if (loading) {
   return (
     <div className="flex h-screen items-center justify-center">
@@ -190,6 +180,14 @@ if (loading) {
       </div>
     </div>
       );
+}
+
+if (error) {
+  return (
+    <div className="flex h-screen items-center justify-center">
+      <div className="text-red-500">{error}</div>
+    </div>
+  );
 }
   return (
     <div className="hidden h-full flex-1 flex-col space-y-4 p-8 md:flex">
