@@ -12,7 +12,7 @@ import { ExecTable } from "@/components/execTable";
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton";
 import * as React from "react"
-import { Row } from "@tanstack/react-table";
+import { CellContext, ColumnDef, Row } from "@tanstack/react-table";
 import {
   Dialog,
   DialogClose,
@@ -74,7 +74,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import Link from "next/link";
-import { DefaultStatusResponse } from "@/utils/ResponseTypes";
+import { DefaultStatusResponse, APIRoles, APIInstanceUsers, APIInstanceRoles } from "@/utils/ResponseTypes";
 
 import {decodeJwt} from "@/utils/userToken"
 import { IconChevronLeft } from "@tabler/icons-react";
@@ -88,8 +88,8 @@ export default function InstanceViewPage() {
   const [loading2, setLoading2] = useState(true);
   const [loading3, setLoading3] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [usersData, setUsersData] = useState([]);
-  const [rolesData, setRolesData] = useState([]);
+  const [usersData, setUsersData] = useState<APIInstanceUsers[]>([]);
+  const [rolesData, setRolesData] = useState<APIInstanceRoles[]>([]);
   const [statusDialogOpen, setStatusDialogOpen] = useState(false); // State to control the status dialog
   const [dialogDescription, setDialogDescription] = useState(""); // State to store the dialog description
   const [open, setOpen] = React.useState(false)
@@ -109,15 +109,19 @@ export default function InstanceViewPage() {
   useEffect(() => {
     async function fetchRoles() {
       try {
-        const response = await apiClient.get("/api/roles");
+        const response = await apiClient.get<APIRoles[] | DefaultStatusResponse>("/api/roles");
         // Transform the API data to { value, label }
+      if (response.status === 200 && Array.isArray(response.data)){
         const roles = (response.data).map((role: any) => ({
           value: String(role.id),
           label: role.name,
         }));
         setRolesFetched(roles);
+      } else {
+        setError("Failed to fetch roles.");
+      }
       } catch (err) {
-        setRolesFetched([]);
+        setError(`Failed to fetch roles: ${err} `);
       }
     }
     fetchRoles();
@@ -220,8 +224,13 @@ export default function InstanceViewPage() {
   useEffect(() => {
     async function fetchInstance() {
       try {
-        const response = await apiClient.get(`/api/instances/users/${id}`);
+        const response = await apiClient.get<APIInstanceUsers[] | DefaultStatusResponse>(`/api/instances/users/${id}`);
+        if (response.status === 200 && Array.isArray(response.data)) {
         setUsersData(response.data);
+        }else {
+          setError("Failed to load instance.");
+          setUsersData([]);
+        } 
       } catch (err) {
         console.error("Failed to fetch instance:", err);
         setError("Failed to load instance.");
@@ -236,8 +245,13 @@ export default function InstanceViewPage() {
   useEffect(() => {
     async function fetchInstance() {
       try {
-        const response = await apiClient.get(`/api/instances/roles/${id}`);
+        const response = await apiClient.get<APIInstanceRoles[] | DefaultStatusResponse>(`/api/instances/roles/${id}`);
+        if (response.status === 200 && Array.isArray(response.data)) {
         setRolesData(response.data);
+        } else {
+          setError("Failed to load instance.");
+          setRolesData([]);
+        }
       } catch (err) {
         console.error("Failed to fetch instance:", err);
         setError("Failed to load instance.");
@@ -248,8 +262,7 @@ export default function InstanceViewPage() {
 
     fetchInstance();
   }, [id]);
-
-  const RolesColumns = [
+  const RolesColumns: ColumnDef<APIInstanceRoles, unknown>[] = [
     {
       accessorKey: "name",
       header: "Name",
@@ -263,9 +276,9 @@ export default function InstanceViewPage() {
       header: "",
       id: "delete",
       enableHiding: false,
-      cell: ({ row }: { row: Row<{ host_username: string, id: number }> }) => {
-        const host_username = row.original.host_username;
-        const roleId = row.original.id;
+      cell: (props: CellContext<APIInstanceRoles, unknown>) => {
+        const host_username = props.row.original.host_username;
+        const roleId = props.row.original.id;
         const handleRoleDelete = async (e: React.FormEvent) => {
           e.preventDefault();
           try {
@@ -345,7 +358,7 @@ export default function InstanceViewPage() {
       }
     }
   ]
-  const Userscolumns = [
+  const Userscolumns: ColumnDef<APIInstanceUsers, unknown>[] = [
     {
       accessorKey: "name",
       header: "Name",
@@ -363,9 +376,8 @@ export default function InstanceViewPage() {
       header: "",
       id: "delete",
       enableHiding: false,
-      cell: ({ row }: { row: Row<{ host_username: string, username: string }> }) => {
-        const host_username = row.original.host_username;
-        const username = row.original.username;
+      cell: (props: CellContext<APIInstanceUsers, unknown>) => {
+        const { host_username, username } = props.row.original;
         const handleDelete = async (e: React.FormEvent) => {
           e.preventDefault();
           try {
@@ -447,6 +459,16 @@ export default function InstanceViewPage() {
   ];
 
 
+
+
+  if (error) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="text-red-500">{error}</div>
+      </div>
+    );
+  }
+
   if (loading || loading2 || loading3) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -460,15 +482,6 @@ export default function InstanceViewPage() {
       </div>
         );
   }
-
-  if (error) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <div className="text-red-500">{error}</div>
-      </div>
-    );
-  }
-
 
   return (<>
     <div className="p-8"><div className="flex items-baseline gap-x-4">

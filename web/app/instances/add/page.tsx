@@ -48,6 +48,7 @@ import { Dialog, DialogContent, DialogHeader } from "@/components/ui/dialog"
 import { DialogDescription, DialogTitle } from "@radix-ui/react-dialog"
 import Link from "next/link"
 import { decodeJwt } from "@/utils/userToken";
+import { CreateInstanceResponse, DefaultStatusResponse } from "@/utils/ResponseTypes"
 
 const decodedToken = decodeJwt();
 export default function InstanceAddPage() {
@@ -65,7 +66,7 @@ export default function InstanceAddPage() {
 	const [dialogDescription, setDialogDescription] = useState(""); // State to store the dialog description
 	const [dialogStatus, setDialogStatus] = useState<"success" | "error" | null>(null);
 	const [dialogClientID, setdialogClientID] = useState(""); // State to store the dialog description
-	const [dialogInstanceID, setdialogInstanceID] = useState(""); // State to store the dialog description
+	const [dialogInstanceID, setdialogInstanceID] = useState<number | undefined>(undefined);
 	const form = useForm<z.infer<typeof formSchema>>({
 		resolver: zodResolver(formSchema),
 		defaultValues: {
@@ -78,15 +79,17 @@ export default function InstanceAddPage() {
 	 
 	  async function onSubmit(values: z.infer<typeof formSchema>) {
 		try {
-		  const response = await apiClient.post(`/api/instances`, values);
+		  const response = await apiClient.post<CreateInstanceResponse | DefaultStatusResponse>(`/api/instances`, values);
 		  if (response.status === 200) {
+        const data = response.data as CreateInstanceResponse;
 		    setDialogStatus("success");
-		    setDialogDescription(response.data.message);
-		    setdialogClientID(response.data.client_id);
-			setdialogInstanceID(response.data.id);
+		    setDialogDescription(data.message);
+		    setdialogClientID(data.client_id);
+			  setdialogInstanceID(data.id);
 		  } else {
+        const data = response.data as DefaultStatusResponse;
 		    setDialogStatus("error");
-		    setDialogDescription(response.data.error_description);
+		    setDialogDescription(data.error_description ?? "An unknown error occurred.");
 		    setdialogClientID("");
 		  }
 		} catch (error) {

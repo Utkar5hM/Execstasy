@@ -14,7 +14,7 @@ import { ExecTable } from "@/components/execTable";
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton";
 import * as React from "react"
-import { Row } from "@tanstack/react-table";
+import { CellContext, ColumnDef, Row } from "@tanstack/react-table";
 import {
   Dialog,
   DialogClose,
@@ -59,7 +59,7 @@ const UserFormSchema = z.object({
 
 
 import Link from "next/link";
-import { DefaultStatusResponse } from "@/utils/ResponseTypes";
+import { APIRolesAccess, APIRoleUsers, DefaultStatusResponse } from "@/utils/ResponseTypes";
 import { decodeJwt } from "@/utils/userToken";
 import { IconChevronLeft } from "@tabler/icons-react";
 
@@ -73,7 +73,7 @@ export default function RoleViewPage() {
   const [loading, setLoading] = useState(true);
   const [loading2, setLoading2] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [usersData, setUsersData] = useState([]);
+  const [usersData, setUsersData] = useState<APIRoleUsers[]>([]);
   const [statusDialogOpen, setStatusDialogOpen] = useState(false); // State to control the status dialog
   const [dialogDescription, setDialogDescription] = useState(""); // State to store the dialog description
   const [userDialogOpen, setUserDialogOpen] = useState(false);
@@ -86,14 +86,16 @@ export default function RoleViewPage() {
   useEffect(() => {
     async function checkCanUpdateRole() {
       try {
-        const response = await apiClient.get(`/api/roles/access/${id}`);
+        const response = await apiClient.get<APIRolesAccess | DefaultStatusResponse>(`/api/roles/access/${id}`);
         if (response.status === 200) {
-          setCanUpdateRole(response.data.access);
+          const data = response.data as APIRolesAccess;
+          setCanUpdateRole(data.access);
         } else {
-          console.error("Failed to check role update permission:", response.data);
+          const data = response.data as DefaultStatusResponse;
+          setError("Failed to check role update permission: " + data.error);
         }
       } catch (error) {
-        console.error("Failed to check role update permission:", error);
+        setError("Failed to check role update permission: " + error);
       }
     }
     checkCanUpdateRole();
@@ -176,8 +178,13 @@ export default function RoleViewPage() {
   useEffect(() => {
     async function fetchInstance() {
       try {
-        const response = await apiClient.get(`/api/roles/users/${id}`);
-        setUsersData(response.data);
+        const response = await apiClient.get<APIRoleUsers[] | DefaultStatusResponse>(`/api/roles/users/${id}`);
+        if (response.status ===200) {
+          setUsersData(response.data as APIRoleUsers[]);
+        } else {
+          const data = response.data as DefaultStatusResponse;
+          setError("Failed to check role update permission: " + data.error);
+        }
       } catch (err) {
         console.error("Failed to fetch instance:", err);
         setError("Failed to load instance.");
@@ -189,7 +196,7 @@ export default function RoleViewPage() {
     fetchInstance();
   }, [id]);
 
-  const Userscolumns = [
+  const Userscolumns: ColumnDef<APIRoleUsers, unknown>[] = [
     {
       accessorKey: "name",
       header: "Name",
@@ -217,11 +224,11 @@ export default function RoleViewPage() {
       header: "",
       id: "delete",
       enableHiding: false,
-      cell: ({ row }: { row: Row<{ username: string }> }) => {
+      cell: (props: CellContext<APIRoleUsers, unknown>) => {
         if (!canUpdateRole) {
           return null; // Hide the delete button if the user cannot update the role
         }
-        const username = row.original.username;
+        const username = props.row.original.username;
         const handleDelete = async (e: React.FormEvent) => {
           e.preventDefault();
           try {

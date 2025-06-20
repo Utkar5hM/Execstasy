@@ -1,2 +1,2 @@
 dev:
-	docker-compose down && docker-compose build && docker-compose up
+	docker-compose -f ./docker-compose-dev.yaml down && docker-compose -f ./docker-compose-dev.yaml build && docker-compose -f ./docker-compose-dev.yaml up

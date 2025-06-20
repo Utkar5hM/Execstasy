@@ -9,6 +9,8 @@ services:
       - "app.env"
     volumes:
       - "./api:/app"
+    environment:
+      - API_DEBUG="TRUE"
   web:
     build: ./web
     container_name: execstasy-web

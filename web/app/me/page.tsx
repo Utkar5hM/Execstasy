@@ -12,23 +12,29 @@ import { Skeleton } from "@/components/ui/skeleton";
 import * as React from "react"
 import Link from "next/link";
 import { DataTableColumnHeader } from "../instances/components/data-table-column-header";
+import { DefaultStatusResponse, APIMyInstance, APIMyProfile, APIMyRoles } from "@/utils/ResponseTypes";
+import { ColumnDef } from "@tanstack/react-table";
 
 
 export default function ProfileViewPage() {
-  const [userProfile, setUserProfile] = useState<any>(null);
+  const [userProfile, setUserProfile] = useState<APIMyProfile | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [loading2, setLoading2] = useState(true);
   const [loading3, setLoading3] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [instancesData, setInstancesData] = useState([]);
-  const [rolesData, setRolesData] = useState([]);
+  const [instancesData, setInstancesData] = useState<APIMyInstance[]>([]);
+  const [rolesData, setRolesData] = useState<APIMyRoles[]>([]);
 
 
   useEffect(() => {
     async function fetchInstance() {
       try {
-        const response = await apiClient.get(`/api/users/me`);
-        setUserProfile(response.data);
+        const response = await apiClient.get<APIMyProfile | DefaultStatusResponse>(`/api/users/me`);
+        if (response.status =200){
+        setUserProfile(response.data  as APIMyProfile);
+        } else {
+          setError("Failed to load user profile.");
+        }
       } catch (err) {
         console.error("Failed to fetch instance:", err);
         setError("Failed to load instance.");
@@ -44,8 +50,12 @@ export default function ProfileViewPage() {
   useEffect(() => {
     async function fetchInstance() {
       try {
-        const response = await apiClient.get(`/api/instances/me`);
-        setInstancesData(response.data);
+        const response = await apiClient.get<APIMyInstance[] | DefaultStatusResponse>(`/api/instances/me`);
+        if (response.status =200){
+          setInstancesData(response.data as APIMyInstance[]);
+        } else {
+          setError("Failed to load instances.");
+        }
       } catch (err) {
         console.error("Failed to fetch instance:", err);
         setError("Failed to load instance.");
@@ -60,8 +70,12 @@ export default function ProfileViewPage() {
   useEffect(() => {
     async function fetchInstance() {
       try {
-        const response = await apiClient.get(`/api/roles/me`);
-        setRolesData(response.data);
+        const response = await apiClient.get<APIMyRoles[] | DefaultStatusResponse>(`/api/roles/me`);
+        if (response.status =200){
+        setRolesData(response.data as APIMyRoles[]);
+        } else {
+          setError("Failed to load roles.");
+        }
       } catch (err) {
         console.error("Failed to fetch instance:", err);
         setError("Failed to load instance.");
@@ -84,7 +98,7 @@ export default function ProfileViewPage() {
       icon: CircleOff,
     },
   ]
-  const RolesColumns = [
+  const RolesColumns: ColumnDef<APIMyRoles, unknown>[] = [
     {
       accessorKey: "name",
       header: "Name",
@@ -94,7 +108,7 @@ export default function ProfileViewPage() {
       header: "Role",
     },
     {
-    accesssorKey: "ID",
+    accessorKey: "ID",
     header: "Actions",
     enableSorting: false,
     enableHiding: false,
@@ -109,7 +123,7 @@ export default function ProfileViewPage() {
     ),
     }
   ]
-  const Instancecolumns = [
+  const Instancecolumns: ColumnDef<APIMyInstance, unknown>[] = [
     {
       accessorKey: "Name",
       header: "Name",
@@ -147,7 +161,7 @@ export default function ProfileViewPage() {
         },
       },
       {
-      accesssorKey: "ID",
+      accessorKey: "ID",
       header: "Actions",
       enableSorting: false,
       enableHiding: false,
@@ -178,7 +192,7 @@ export default function ProfileViewPage() {
         );
   }
 
-  if (error) {
+  if (error || !userProfile) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="text-red-500">{error}</div>

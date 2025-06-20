@@ -230,7 +230,9 @@ if (loading) {
                         column.toggleVisibility(!!value)
                       }
                     >
-                      {column.columnDef.header}
+                      {typeof column.columnDef.header === "string"
+    ? column.columnDef.header
+    : "Column"}
                     </DropdownMenuCheckboxItem>
                   );
                 })}
