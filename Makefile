@@ -3,3 +3,6 @@ dev:
 
 prod:
 	docker-compose down && docker-compose build && docker-compose up -d
+
+svc-prod:
+	docker-compose -f ./docker-compose-svc.yaml down && docker-compose -f ./docker-compose-svc.yaml build && docker-compose -f ./docker-compose-svc.yaml up -d

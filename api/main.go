@@ -24,19 +24,15 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Connection to Database first. :)
 	dbpool, err := pgxpool.New(context.Background(), cfg.DATABASE_URL)
+	fmt.Println("API_DEBUG: " + os.Getenv("API_DEBUG"))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to create connection pool: %v\n", err)
 		os.Exit(1)
 	}
 	defer dbpool.Close()
-
-	rdb := redis.NewClient(&redis.Options{
-		Addr:     cfg.REDIS_DB_URL,
-		Password: cfg.REDIS_PASSWORD, // no password set
-		DB:       cfg.REDIS_DB,       // use default DB
-	})
+	opt, _ := redis.ParseURL(cfg.REDIS_DB_URL)
+	rdb := redis.NewClient(opt)
 	validate := validator.New(validator.WithRequiredStructEnabled())
 	validate.RegisterValidation("usernameregex", validations.UserNameValidator)
 	validate.RegisterValidation("nameregex", validations.NameValidator)

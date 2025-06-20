@@ -12,7 +12,7 @@ services:
     volumes:
       - "./api:/app"
     environment:
-      - API_DEBUG="TRUE"
+      - API_DEBUG=TRUE
   web:
     build: 
       context: ./web

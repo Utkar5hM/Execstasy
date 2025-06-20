@@ -44,3 +44,5 @@ web/.swc/
 web/.*.env
 
 db_data
+
+.env

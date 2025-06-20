@@ -1,5 +1,5 @@
 -- 1. ENUM for role member types
-CREATE TYPE role_member_role AS ENUM ('admin', 'standard');
+CREATE TYPE role_users_role AS ENUM ('admin', 'standard');
 
 -- 2. Users table (assumed to exist)
 -- CREATE TABLE users (...)
