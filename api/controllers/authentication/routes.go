@@ -14,6 +14,7 @@ func UseSubroute(g *echo.Group, db *pgxpool.Pool, cfg *config.Config, v *validat
 	g.GET("/oauth/google/callback", h.GoogleCallback)
 	g.GET("/oauth/gitlab/login", h.GitLabLogin)
 	g.GET("/oauth/gitlab/callback", h.GitLabCallback)
+	g.POST("/oauth/gitlab/exchange", h.GitLabExchange)
 	protectedGroup := g.Group("")
 	protectedGroup.Use(IsLoggedIn(cfg.JWT_SECRET))
 	protectedGroup.GET("", h.getUsers)

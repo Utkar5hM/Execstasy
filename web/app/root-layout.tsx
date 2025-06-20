@@ -31,6 +31,7 @@ export default function RootLayoutClient({
 }>) {
   const pathname = usePathname(); // Get the current route
   const isLoginPage = pathname === "/users/login"; // Check if the current route is `/users/login`
+  const isLoginCallback = pathname === "/users/login/callback";
   const router = useRouter(); // Initialize useRouter for redirection
   const [isLoggedIn, setIsLoggedIn] = useState(false); // State to track login status
   const [loading, setLoading] = useState(true); // State to track loading status
@@ -43,14 +44,14 @@ export default function RootLayoutClient({
       acc[key] = value;
       return acc;
     }, {} as Record<string, string>);
-
+  
     const token = cookies.jwt;
-
+  
     if (token) {
       try {
         // Decode the token
         const decoded: { exp: number } = jwtDecode(token);
-
+  
         // Check if the token is expired
         const isExpired = decoded.exp * 1000 < Date.now();
         if (!isExpired) {
@@ -66,17 +67,17 @@ export default function RootLayoutClient({
     } else {
       setIsLoggedIn(false); // No token found
     }
-
+  
     setLoading(false); // Validation is complete
   }, []);
 
   useEffect(() => {
-    if (!loading && !isLoggedIn && !isLoginPage) {
+    if (!loading && !isLoggedIn && !isLoginPage && !isLoginCallback) {
       router.push("/users/login");
-    } else if( !loading && isLoggedIn && isLoginPage) {
+    } else if( !loading && isLoggedIn && isLoginPage && !isLoginCallback) {
       router.push("/"); 
     }
-  }, [loading, isLoggedIn, isLoginPage, router]);
+  }, [loading, isLoggedIn, isLoginPage, router, isLoginCallback]);
   
   return (
     <html lang="en" suppressHydrationWarning>

@@ -39,6 +39,11 @@ func main() {
 	validate.RegisterValidation("linuxuser", validations.LinuxUserValidator)
 	validate.RegisterValidation("scopelinuxuser", validations.ScopeLinuxUserValidator)
 	e := echo.New()
+	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
+		AllowOrigins:     []string{cfg.FRONTEND_URL},
+		AllowHeaders:     []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
+		AllowCredentials: true,
+	}))
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 	e.Pre(middleware.MethodOverride())

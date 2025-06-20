@@ -5,6 +5,12 @@ export type DefaultStatusResponse = {
 	error_description?: string;
   };
 
+  export type AuthLogin = {
+	access_token?: string;
+	expiry?: string;
+	// add other custom claims if needed
+  };
+
   export type AuthJwtPayload = {
 	name?: string;
 	username?: string;

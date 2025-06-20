@@ -2,6 +2,7 @@ package authentication
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -97,5 +98,6 @@ func (h *AuthHandler) GoogleCallback(c echo.Context) error {
 	cookie.Path = "/"
 	c.SetCookie(cookie)
 
-	return c.Redirect(http.StatusFound, "/")
+	redirectURL := fmt.Sprintf("%s/users/login/callback?access_token=%s", h.Config.FRONTEND_URL, tokenString)
+	return c.Redirect(http.StatusFound, redirectURL)
 }

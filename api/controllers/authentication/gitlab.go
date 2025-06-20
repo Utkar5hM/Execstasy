@@ -1,7 +1,10 @@
 package authentication
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -12,22 +15,81 @@ import (
 	"golang.org/x/oauth2"
 )
 
+func generateRandomState() string {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		// fallback or panic as appropriate for your app
+		return ""
+	}
+	return base64.URLEncoding.EncodeToString(b)
+}
+
+func setSecureStateCookie(c echo.Context, state string) {
+	cookie := new(http.Cookie)
+	cookie.Name = "oauth_state"
+	cookie.Value = state
+	cookie.Path = "/"
+	cookie.HttpOnly = true
+	cookie.Secure = true
+	cookie.SameSite = http.SameSiteLaxMode
+	cookie.Expires = time.Now().Add(5 * time.Minute)
+
+	c.SetCookie(cookie)
+}
+
+func getSecureStateCookie(c echo.Context) string {
+	cookie, err := c.Cookie("oauth_state")
+	if err != nil {
+		return ""
+	}
+	return cookie.Value
+}
+
 func (h *AuthHandler) GitLabLogin(c echo.Context) error {
-	url := h.Config.GitlabLoginConfig.AuthCodeURL("state", oauth2.AccessTypeOnline)
+	challenge := c.QueryParam("challenge")
+	gitlabConfig := h.Config.GitlabLoginConfig
+	state := generateRandomState()
+	setSecureStateCookie(c, state)
+	url := gitlabConfig.AuthCodeURL(state,
+		oauth2.SetAuthURLParam("code_challenge", challenge),
+		oauth2.SetAuthURLParam("code_challenge_method", "S256"),
+		oauth2.AccessTypeOnline)
 	return c.Redirect(http.StatusTemporaryRedirect, url)
 }
 
 func (h *AuthHandler) GitLabCallback(c echo.Context) error {
 	code := c.QueryParam("code")
-	token, err := h.Config.GitlabLoginConfig.Exchange(c.Request().Context(), code)
+	state := c.QueryParam("state")
+	stateFromCookie := getSecureStateCookie(c)
+	if stateFromCookie != stateFromCookie {
+		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("Invalid state parameter", nil))
+	}
+	redirectURL := fmt.Sprintf("%s/users/login/callback?code=%s&state=%s", h.Config.FRONTEND_URL, code, state)
+	return c.Redirect(http.StatusFound, redirectURL)
+}
+
+type gitlabExchanceData struct {
+	CodeVerifier string `json:"code_verifier"`
+	Code         string `json:"code"`
+	State        string `json:"state"`
+}
+
+func (h *AuthHandler) GitLabExchange(c echo.Context) error {
+	var data gitlabExchanceData
+	if err := c.Bind(&data); err != nil {
+		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("Invalid request body", err))
+	}
+	gitlabConfig := h.Config.GitlabLoginConfig
+	token, err := gitlabConfig.Exchange(c.Request().Context(), data.Code, oauth2.SetAuthURLParam("code_verifier", data.CodeVerifier))
 	if err != nil {
-		return err
+		return c.JSON(http.StatusInternalServerError, helper.ErrorMessage("Failed to exchange code for token\ncode: "+
+			data.Code+"\nverifier: "+data.CodeVerifier, err))
 	}
 
-	client := h.Config.GitlabLoginConfig.Client(c.Request().Context(), token)
+	client := gitlabConfig.Client(c.Request().Context(), token)
 	resp, err := client.Get(h.Config.GitlabLoginEndpoint + "/api/v4/user")
 	if err != nil {
-		return err
+		return c.JSON(http.StatusInternalServerError, helper.ErrorMessage("Failed to fetch user information", err))
 	}
 	defer resp.Body.Close()
 
@@ -65,7 +127,7 @@ func (h *AuthHandler) GitLabCallback(c echo.Context) error {
 			return c.JSON(http.StatusInternalServerError, helper.ErrorMessage("Failed to fetch user", err))
 		}
 	}
-
+	expiry := time.Now().Add(time.Hour * 72)
 	claims := &JwtCustomClaims{
 		sql_fetched_user.Name,
 		sql_fetched_user.Username,
@@ -73,7 +135,7 @@ func (h *AuthHandler) GitLabCallback(c echo.Context) error {
 		sql_fetched_user.Id,
 		sql_fetched_user.Email,
 		jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour * 72)),
+			ExpiresAt: jwt.NewNumericDate(expiry),
 		},
 	}
 	tokenString, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(h.Config.JWT_SECRET))
@@ -81,12 +143,16 @@ func (h *AuthHandler) GitLabCallback(c echo.Context) error {
 		return err
 	}
 
-	cookie := new(http.Cookie)
-	cookie.Name = "jwt"
-	cookie.Value = tokenString
-	cookie.Expires = time.Now().Add(24 * time.Hour)
-	cookie.Path = "/"
-	c.SetCookie(cookie)
-
-	return c.Redirect(http.StatusFound, "/")
+	// cookie := new(http.Cookie)
+	// cookie.Name = "jwt"
+	// cookie.Value = tokenString
+	// cookie.Expires = time.Now().Add(72 * time.Hour)
+	// cookie.Path = "/"
+	// c.SetCookie(cookie)
+	return c.JSON(http.StatusOK, echo.Map{
+		"message":      "Login successful",
+		"status":       "success",
+		"access_token": tokenString,
+		"expiry":       expiry,
+	})
 }

@@ -8,10 +8,43 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 
+import pkceChallenge from 'pkce-challenge';
+import { useEffect, useState } from "react";
+import { Skeleton } from "./ui/skeleton";
+
+const baseURL = process.env.NEXT_PUBLIC_BACKEND_URL || "";
+
 export function LoginForm({
   className,
   ...props
 }: React.ComponentProps<"div">) {
+  const [codeChallenge, setCodeChallenge] = useState("");
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+
+    async function getLoginURL() {
+    const { code_challenge, code_verifier } = await pkceChallenge();
+    // Store the code_verifier in localStorage or sessionStorage
+    sessionStorage.setItem('code_verifier', code_verifier);
+    setCodeChallenge(encodeURIComponent(code_challenge));
+    setLoading(false);
+  }
+    getLoginURL();
+  }, [])
+
+  if (loading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="flex items-center space-x-4">
+          <Skeleton className="h-12 w-12 rounded-full" />
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-[250px]" />
+            <Skeleton className="h-4 w-[200px]" />
+          </div>
+        </div>
+      </div>
+        );
+  }
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
       <Card>
@@ -24,7 +57,8 @@ export function LoginForm({
         <CardContent>
         <div className="grid gap-6">
   <div className="flex flex-col gap-4">
-    <form action="/api/users/oauth/google/login" method="POST">
+    <form action={baseURL + "/api/users/oauth/google/login?challenge=" + codeChallenge}  method="GET">
+    <input type="hidden" name="challenge" value={codeChallenge} />
       <Button type="submit" variant="outline" className="w-full">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
           <path
@@ -35,7 +69,8 @@ export function LoginForm({
         Login with Google
       </Button>
     </form>
-    <form action="/api/users/oauth/gitlab/login" method="GET">
+    <form action={baseURL + "/api/users/oauth/gitlab/login?challenge=" + codeChallenge} method="GET">
+    <input type="hidden" name="challenge" value={codeChallenge} />
       <Button type="submit" variant="outline" className="w-full">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
           <path

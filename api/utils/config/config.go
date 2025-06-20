@@ -19,6 +19,8 @@ type Config struct {
 	REDIS_DB_URL        string
 	GitlabLoginConfig   oauth2.Config
 	GitlabLoginEndpoint string
+	FRONTEND_URL        string
+	BACKEND_URL         string
 }
 
 type Handler struct {
@@ -31,6 +33,14 @@ type Handler struct {
 func LoadConfig() (*Config, error) {
 
 	GITLAB_BASEURL := os.Getenv("GITLAB_BASEURL")
+	FRONTEND_URL := os.Getenv("FRONTEND_URL")
+	BACKEND_URL := os.Getenv("BACKEND_URL")
+	if BACKEND_URL == "" {
+		BACKEND_URL = "http://localhost:4000"
+	}
+	if FRONTEND_URL == "" {
+		FRONTEND_URL = "http://localhost:4000"
+	}
 	if GITLAB_BASEURL == "" {
 		GITLAB_BASEURL = "https://gitlab.com"
 	}
@@ -38,7 +48,7 @@ func LoadConfig() (*Config, error) {
 		DATABASE_URL: os.Getenv("DATABASE_URL"),
 		JWT_SECRET:   os.Getenv("JWT_SECRET"),
 		GoogleLoginConfig: oauth2.Config{
-			RedirectURL:  "http://localhost:4000/api/users/oauth/google/callback",
+			RedirectURL:  BACKEND_URL + "/api/users/oauth/google/callback",
 			ClientID:     os.Getenv("GOOGLE_CLIENT_ID"),
 			ClientSecret: os.Getenv("GOOGLE_CLIENT_SECRET"),
 			Scopes: []string{"https://www.googleapis.com/auth/userinfo.email",
@@ -47,7 +57,7 @@ func LoadConfig() (*Config, error) {
 		},
 		REDIS_DB_URL: os.Getenv("REDIS_URL"),
 		GitlabLoginConfig: oauth2.Config{
-			RedirectURL:  "http://localhost:4000/api/users/oauth/gitlab/callback",
+			RedirectURL:  BACKEND_URL + "/api/users/oauth/gitlab/callback",
 			ClientID:     os.Getenv("GITLAB_CLIENT_ID"),
 			ClientSecret: os.Getenv("GITLAB_CLIENT_SECRET"),
 			Scopes:       []string{"read_user"},
@@ -57,6 +67,7 @@ func LoadConfig() (*Config, error) {
 			},
 		},
 		GitlabLoginEndpoint: GITLAB_BASEURL,
+		FRONTEND_URL:        FRONTEND_URL,
 	}
 
 	return cfg, nil

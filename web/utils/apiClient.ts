@@ -4,6 +4,8 @@ type ApiResponse<T> = {
 	data: T;
   };
 
+const baseURL = process.env.NEXT_PUBLIC_BACKEND_URL || "";
+
 export const apiClient = {
 	async request<T>(
 	  endpoint: string,
@@ -13,7 +15,7 @@ export const apiClient = {
 		.split("; ")
 		.find((row) => row.startsWith("jwt="))
 		?.split("=")[1];
-  
+		
 	  // Construct headers
 	  const headers: HeadersInit = {
 		"Content-Type": "application/json",
@@ -21,7 +23,10 @@ export const apiClient = {
 		...options.headers,
 	  };
   
-	  const response = await fetch(endpoint, {
+	  const url = endpoint.startsWith("http")
+      ? endpoint
+      : baseURL.replace(/\/$/, "") + "/" + endpoint.replace(/^\//, "");
+	  const response = await fetch(url, {
 		...options,
 		headers,
 	  });

@@ -15,8 +15,8 @@ services:
       dockerfile: Dockerfile
     container_name: execstasy-web
     restart: always
-    # env_file:
-      # - web/.env
+    env_file:
+      - "web.env"
   nginx:
     container_name: execstasy-nginx
     image: nginx:latest

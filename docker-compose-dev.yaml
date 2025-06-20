@@ -8,7 +8,7 @@ services:
       - redis
     restart: always
     env_file:
-      - "app.env"
+      - ".env"
     volumes:
       - "./api:/app"
     environment:
@@ -23,8 +23,8 @@ services:
     restart: always
     volumes:
       - "./web:/app"
-    # env_file:
-      # - web/.env
+    env_file:
+      - ".env"
   redis:
     container_name: execstasy-redis
     image: redis:alpine
