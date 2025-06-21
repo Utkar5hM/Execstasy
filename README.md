@@ -20,7 +20,7 @@ Execstasy is a modern platform for managing Role-Based Access Control (RBAC) and
 
 2. **configure app.env file**
 
-copy app.env.example to app.env and setup all the required environment variables.
+copy .env.example to .env and setup all the required environment variables.
 
 3.  **Start Dev Environment**
 

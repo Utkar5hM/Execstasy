@@ -1,16 +1,12 @@
 services:
   api:
-    build: 
-      context: ./api
-      dockerfile: Dockerfile
+    image: ghcr.io/utkar5hm/execstasy-api:main
     container_name: execstasy-api
     restart: always
     env_file:
       - ".env"
   web:
-    build: 
-      context: ./web
-      dockerfile: Dockerfile
+    image: ghcr.io/utkar5hm/execstasy-web:main
     container_name: execstasy-web
     restart: always
     env_file:
