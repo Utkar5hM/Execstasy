@@ -11,15 +11,17 @@ import {
 import pkceChallenge from 'pkce-challenge';
 import { useEffect, useState } from "react";
 import { Skeleton } from "./ui/skeleton";
+import { env } from 'next-runtime-env';
 
-const baseURL = process.env.NEXT_PUBLIC_BACKEND_URL || "";
-const GitlabEnabled = (process.env.NEXT_PUBLIC_ENABLE_GITLAB_OAUTH || "").toLowerCase() === "true";
-const GoogleEnabled = (process.env.NEXT_PUBLIC_ENABLE_GOOGLE_OAUTH || "").toLowerCase() === "true";
 
 export function LoginForm({
   className,
   ...props
 }: React.ComponentProps<"div">) {
+
+  const baseURL = env("NEXT_PUBLIC_BACKEND_URL") || "";
+  const GitlabEnabled = (env("NEXT_PUBLIC_ENABLE_GITLAB_OAUTH") || "").toLowerCase() === "true";
+  const GoogleEnabled = (env("NEXT_PUBLIC_ENABLE_GOOGLE_OAUTH") || "").toLowerCase() === "true";
   const [codeChallenge, setCodeChallenge] = useState("");
   const [loading, setLoading] = useState(true);
   useEffect(() => {

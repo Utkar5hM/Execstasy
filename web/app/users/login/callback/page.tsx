@@ -5,13 +5,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { apiClient } from "@/utils/apiClient";
 import { AuthLogin } from "@/utils/ResponseTypes";
 import Cookies from 'js-cookie';
+import { Suspense } from "react";
 
-export default function OAuthCallback() {
+function OAuthCallbackInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
   useEffect(() => {
-    const checkCookieAndRedirect = (token: String) => {
+    const checkCookieAndRedirect = (token: string) => {
       if (Cookies.get('jwt')== token) {
         setTimeout(()=>{
           router.replace("/users/login/redirect");
@@ -68,5 +69,23 @@ export default function OAuthCallback() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function OAuthCallback() {
+  return (
+    <Suspense fallback={
+      <div className="flex h-screen items-center justify-center">
+        <div className="flex items-center space-x-4">
+          <Skeleton className="h-12 w-12 rounded-full" />
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-[250px]" />
+            <Skeleton className="h-4 w-[200px]" />
+          </div>
+        </div>
+      </div>
+    }>
+      <OAuthCallbackInner />
+    </Suspense>
   );
 }

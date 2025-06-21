@@ -6,9 +6,7 @@ services:
     container_name: execstasy-api
     restart: always
     env_file:
-      - "app.env"
-    environment:
-      - API_DEBUG=FALSE
+      - ".env"
   web:
     build: 
       context: ./web
@@ -16,7 +14,7 @@ services:
     container_name: execstasy-web
     restart: always
     env_file:
-      - "web.env"
+      - ".env"
   nginx:
     container_name: execstasy-nginx
     image: nginx:latest

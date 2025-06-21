@@ -3,14 +3,14 @@ type ApiResponse<T> = {
 	ok: boolean;
 	data: T;
   };
-
-const baseURL = process.env.NEXT_PUBLIC_BACKEND_URL || "";
+import {env} from "next-runtime-env";
 
 export const apiClient = {
 	async request<T>(
 	  endpoint: string,
 	  options: RequestInit = {}
 	): Promise<ApiResponse<T>> {
+	  const baseURL = env("NEXT_PUBLIC_BACKEND_URL") || "";
 	  const token = document.cookie
 		.split("; ")
 		.find((row) => row.startsWith("jwt="))
