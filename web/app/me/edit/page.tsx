@@ -33,6 +33,7 @@ import { Dialog, DialogContent, DialogHeader } from "@/components/ui/dialog"
 import { DialogDescription, DialogTitle } from "@radix-ui/react-dialog"
 import Link from "next/link"
 import { Skeleton } from "@/components/ui/skeleton"
+import { APIupdateProfile } from "@/utils/ResponseTypes";
 export default function InstanceEditPage() {
 	const [statusDialogOpen, setStatusDialogOpen] = useState(false); // State to control the status dialog
 	const [dialogDescription, setDialogDescription] = useState(""); // State to store the dialog description
@@ -71,18 +72,17 @@ export default function InstanceEditPage() {
       fetchInstance();
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
-    type ProfileResponse = {
-      message: string;
-      error_description?: string;
-    };
 
 	  async function onSubmit(values: z.infer<typeof formSchema>) {
 		try {
-		  const response = await apiClient.put(`/api/users/me`, values);
-      const data = response.data as ProfileResponse;
+		  const response = await apiClient.put<APIupdateProfile>(`/api/users/me`, values);
+      const data = response.data;
 		  if (response.status === 200) {
-		    setDialogStatus("success");
-		    setDialogDescription(data.message);
+        setTimeout(() => {
+          setDialogStatus("success");
+          setDialogDescription(data.message);
+          }
+        , 500); // Delay to allow the dialog to open
 		  } else {
 		    setDialogStatus("error");
 		    setDialogDescription(data.error_description || "Unknown error");
@@ -117,7 +117,7 @@ export default function InstanceEditPage() {
   return (
 	<>
 	<div className="p-8"><div className="flex items-baseline gap-x-4 pb-6">
-	  <h1 className="text-2xl font-bold pb-6">Edit Role</h1>
+	  <h1 className="text-2xl font-bold pb-6">Edit Profile</h1>
 <Link className="" href={`/me`}>
 <Button variant="link"><IconChevronLeft stroke={2} />
 Go Back to Profile</Button>

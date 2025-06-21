@@ -33,8 +33,9 @@ func (h *roleHandler) AddUserToRole(c echo.Context) error {
 
 	// Get user ID from username
 	var userId uint64
-	sqlUserCheck, _, _ := goqu.From("users").Where(goqu.Ex{"username": addUserRoleStruct.Username}).Select("id").ToSQL()
-	if err := h.DB.QueryRow(c.Request().Context(), sqlUserCheck).Scan(&userId); err != nil {
+	var name string
+	sqlUserCheck, _, _ := goqu.From("users").Where(goqu.Ex{"username": addUserRoleStruct.Username}).Select("id", "name").ToSQL()
+	if err := h.DB.QueryRow(c.Request().Context(), sqlUserCheck).Scan(&userId, &name); err != nil {
 		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("User not found", err))
 	}
 
@@ -74,8 +75,14 @@ func (h *roleHandler) AddUserToRole(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("Failed to add user to role", err))
 	}
 
-	return c.JSON(http.StatusOK, echo.Map{"message": "Successfully added user to role",
-		"status": "success"})
+	return c.JSON(http.StatusOK, echo.Map{
+		"message": "Successfully added user to role",
+		"status":  "success",
+		"data": echo.Map{
+			"user_id": userId,
+			"name":    name,
+		},
+	})
 }
 
 func (h *roleHandler) DeleteUserFromRole(c echo.Context) error {
@@ -89,7 +96,7 @@ func (h *roleHandler) DeleteUserFromRole(c echo.Context) error {
 	if err := h.Validator.Struct(roleID); err != nil {
 		return c.JSON(400, helper.ErrorMessage("Input path parameters Validation failed", err))
 	}
-	deleteUserRoleStruct := new(AddUserRole)
+	deleteUserRoleStruct := new(DeleteUserRole)
 	if err := c.Bind(deleteUserRoleStruct); err != nil {
 		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("Invalid request format", err))
 	}

@@ -27,4 +27,8 @@ type (
 		Username string `json:"username" validate:"required,ascii,min=2,max=50"`
 		Role     string `json:"role" validate:"required,oneof=admin standard"`
 	}
+
+	DeleteUserRole struct {
+		Username string `json:"username" validate:"required,ascii,min=2,max=50"`
+	}
 )

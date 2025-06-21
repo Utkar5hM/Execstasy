@@ -154,6 +154,8 @@ export default function InstanceEditPage() {
             if (response.status === 200) {
               sethostUserstatusDialogOpen(true);
               setDialogDescription(`${response.data.status}: ${response.data.message}`);
+              const updatedUsersData = usersData.filter(user => user.host_username !== selectedHostUsername);
+              setUsersData(updatedUsersData);
             } else {
               sethostUserstatusDialogOpen(true);
               setDialogDescription(`${response.data.error}: ${response.data.error_description}`);
@@ -234,6 +236,7 @@ export default function InstanceEditPage() {
         if (response.status === 200) {
           // Success: Open the dialog and set the message
           setDialogDescription(`${response.data.status}: ${response.data.message}`);
+          setUsersData((prevData) => [...prevData, { host_username: data.host_username }]);
         } else {
           // Error: Open the dialog and set the error message
           setDialogDescription(`${response.data.error}: ${response.data.error_description}`);

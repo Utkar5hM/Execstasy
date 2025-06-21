@@ -73,7 +73,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import Link from "next/link";
-import { DefaultStatusResponse, APIRoles, APIInstanceUsers, APIInstanceRoles, APIInstanceView } from "@/utils/ResponseTypes";
+import { DefaultStatusResponse, APIRoles, APIInstanceUsers, APIInstanceRoles, APIInstanceView, APIAddInstanceUser, APIAddInstanceRole } from "@/utils/ResponseTypes";
 
 import {decodeJwt} from "@/utils/userToken"
 import { IconChevronLeft } from "@tabler/icons-react";
@@ -142,11 +142,21 @@ export default function InstanceViewPage() {
   async function onSubmitUser(data: z.infer<typeof UserFormSchema>) {
     setUserDialogOpen(false);
     try{
-    const response = await apiClient.post<DefaultStatusResponse>(`/api/instances/users/${id}`, data);
+    const response = await apiClient.post<APIAddInstanceUser>(`/api/instances/users/${id}`, data);
     console.log("API Response:", response);
     if (response.status === 200) {
       // Success: Open the dialog and set the message
       setDialogDescription(`${response.data.status}: ${response.data.message}`);
+      const fetchedData = response.data.data || { name: "", username: "", host_username: "", user_id: 0, role: "user" };
+      const newUser: APIInstanceUsers = {
+        name: fetchedData.name,
+        username: data.username,
+        host_username: data.host_username,
+        id: fetchedData.user_id,
+        role: fetchedData.role,
+        
+      };
+      setUsersData((prevUsers) => [...prevUsers, newUser]); // Update usersData with the new user
     } else {
       // Error: Open the dialog and set the error message
       setDialogDescription(`${response.data.error}: ${response.data.error_description}`);
@@ -169,11 +179,18 @@ export default function InstanceViewPage() {
   async function onSubmitRole(data: z.infer<typeof RoleFormSchema>) {
     setRoleDialogOpen(false);
     try{
-    const response = await apiClient.post<DefaultStatusResponse>(`/api/instances/roles/${id}`, data);
+    const response = await apiClient.post<APIAddInstanceRole>(`/api/instances/roles/${id}`, data);
     console.log("API Response:", response);
     if (response.status === 200) {
       // Success: Open the dialog and set the message
       setDialogDescription(`${response.data.status}: ${response.data.message}`);
+      const fetchedData = response.data.data || { instance_id: 0, role_id: 0, role_name: "" };
+      const newRole: APIInstanceRoles = {
+        id: fetchedData.role_id,
+        name: fetchedData.role_name,
+        host_username: data.host_username,
+      };
+      setRolesData((prevRoles) => [...prevRoles, newRole]); // Update rolesData with the new role
     } else {
       // Error: Open the dialog and set the error message
       setDialogDescription(`${response.data.error}: ${response.data.error_description}`);
@@ -293,6 +310,8 @@ export default function InstanceViewPage() {
             if (response.status === 200) {
               setStatusDialogOpen(true);
               setDialogDescription(`${response.data.status}: ${response.data.message}`);
+              const instanceRoles = rolesData.filter(role => role.id !== deleteRoleID || role.host_username !== deleteHostUsername);
+              setRolesData(instanceRoles);
             } else {
               setStatusDialogOpen(true);
               setDialogDescription(`${response.data.error}: ${response.data.error_description}`);
@@ -392,6 +411,8 @@ export default function InstanceViewPage() {
             if (response.status === 200) {
               setStatusDialogOpen(true);
               setDialogDescription(`${response.data.status}: ${response.data.message}`);
+              const instanceUsers = usersData.filter(user => user.username !== deleteUsername || user.host_username !== deleteHostUsername);
+              setUsersData(instanceUsers);
             } else {
               setStatusDialogOpen(true);
               setDialogDescription(`${response.data.error}: ${response.data.error_description}`);

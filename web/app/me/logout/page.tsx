@@ -12,7 +12,7 @@ export default function LogoutPage() {
     Cookies.remove('jwt');
     // redirect with timeout
     setTimeout(() => {
-      router.push("/");
+      router.push("/users/login");
     }, 500); 
 
   }, [router]);

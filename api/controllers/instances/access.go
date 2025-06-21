@@ -27,10 +27,12 @@ func (h *instanceHandler) addUserInstanceAccess(c echo.Context) error {
 		return c.JSON(400, helper.ErrorMessage("Input Validation failed", err))
 	}
 	instanceId := instanceID.ID
-	sql, _, _ := goqu.From("users").Where(goqu.C("username").Eq(addUserInstanceStruct.Username)).Select("id").ToSQL()
+	sql, _, _ := goqu.From("users").Where(goqu.C("username").Eq(addUserInstanceStruct.Username)).Select("id", "name", "role").ToSQL()
 	row := h.DB.QueryRow(c.Request().Context(), sql)
 	var userID string
-	err = row.Scan(&userID)
+	var name string
+	var role string
+	err = row.Scan(&userID, &name, &role)
 	if err != nil {
 		return c.JSON(400, helper.ErrorMessage("Failed to add access for user to Instance.", err.Error()))
 	}
@@ -48,6 +50,14 @@ func (h *instanceHandler) addUserInstanceAccess(c echo.Context) error {
 	return c.JSON(200, echo.Map{
 		"status":  "success",
 		"message": "User access added to instance successfully.",
+		"data": echo.Map{
+			"instance_id":   instanceId,
+			"user_id":       userID,
+			"role":          role,
+			"name":          name,
+			"username":      addUserInstanceStruct.Username,
+			"host_username": addUserInstanceStruct.HostUsername,
+		},
 	})
 }
 

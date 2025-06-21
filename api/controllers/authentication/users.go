@@ -175,18 +175,20 @@ func (h *AuthHandler) updateMe(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-
+	expiry := claims.ExpiresAt
 	// Set JWT token as cookie
 	cookie := new(http.Cookie)
 	cookie.Name = "jwt"
 	cookie.Value = tokenString
-	cookie.Expires = time.Now().Add(24 * time.Hour)
+	cookie.Expires = expiry.Time
 	cookie.Path = "/"
 	c.SetCookie(cookie)
 	// Return success message
 	return c.JSON(200, echo.Map{
-		"message": "User information updated successfully",
-		"status":  "success",
+		"message":      "User information updated successfully",
+		"status":       "success",
+		"access_token": tokenString,
+		"expiry":       expiry,
 	})
 }
 

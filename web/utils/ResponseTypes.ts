@@ -5,6 +5,41 @@ export type DefaultStatusResponse = {
 	error_description?: string;
   };
 
+  export type APIAddInstanceUser = {
+	data?: {
+	  host_username: string;
+	  instance_id: number;
+	  name: string;
+	  role: string;
+	  user_id: number;
+	  username: string;
+	};
+  } & DefaultStatusResponse;
+
+
+  export type APIupdateProfile = {
+	access_token?: string;
+	expiry?: string;
+  } & DefaultStatusResponse;
+
+  export type APIAddInstanceRole = {
+	data?: {
+		instance_id: number;
+		role_id: number;
+		role_name: string;
+	};
+
+  } & DefaultStatusResponse;
+
+  export type APIAddRoleUser = {
+	data?: {
+		name: string;
+		user_id: number;
+	};
+
+  } & DefaultStatusResponse;
+
+
   export type AuthLogin = {
 	access_token?: string;
 	expiry?: string;

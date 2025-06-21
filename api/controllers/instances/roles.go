@@ -97,9 +97,25 @@ func (h *instanceHandler) addInstanceRoles(c echo.Context) error {
 			"error_description": err.Error(),
 		})
 	}
+	sql, _, _ = goqu.From("roles").Where(
+		goqu.Ex{"id": role.ID},
+	).Select("name").ToSQL()
+	var roleName string
+	err = h.DB.QueryRow(c.Request().Context(), sql).Scan(&roleName)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, echo.Map{
+			"error":             "Failed to get role name",
+			"error_description": err.Error(),
+		})
+	}
 	return c.JSON(http.StatusOK, echo.Map{
 		"message": "Successfully added instance role",
 		"status":  "success",
+		"data": echo.Map{
+			"instance_id": instanceID.ID,
+			"role_id":     role.ID,
+			"role_name":   roleName,
+		},
 	})
 
 }

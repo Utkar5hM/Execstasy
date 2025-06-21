@@ -34,7 +34,7 @@ import {
 
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
-import { z } from "zod"
+import {  z } from "zod"
 import {
   Form,
   FormControl,
@@ -56,7 +56,7 @@ const UserFormSchema = z.object({
 
 
 import Link from "next/link";
-import { APIRole, APIRolesAccess, APIRoleUsers, DefaultStatusResponse } from "@/utils/ResponseTypes";
+import { APIAddRoleUser, APIRole, APIRolesAccess, APIRoleUsers, DefaultStatusResponse } from "@/utils/ResponseTypes";
 import { decodeJwt } from "@/utils/userToken";
 import { IconChevronLeft } from "@tabler/icons-react";
 
@@ -111,10 +111,24 @@ export default function RoleViewPage() {
   async function onSubmitUser(data: z.infer<typeof UserFormSchema>) {
     setUserDialogOpen(false);
     try{
-    const response = await apiClient.post<DefaultStatusResponse>(`/api/roles/users/${id}`, data);
+    const response = await apiClient.post<APIAddRoleUser>(`/api/roles/users/${id}`, data);
     if (response.status === 200) {
       // Success: Open the dialog and set the message
       setDialogDescription(`${response.data.status}: ${response.data.message}`);
+      const fetchedData = response.data.data || {
+        name: "Newly Added User",
+        username: data.username,
+        role: data.role,
+        user_id: 0, 
+      };
+      const newUser: APIRoleUsers = {
+        name: fetchedData.name,
+        username: data.username,
+        role: data.role,
+        id: fetchedData.user_id,
+      };
+      // Add the new user to the usersData state
+      setUsersData((prevUsers) => [...prevUsers, newUser]);
     } else {
       // Error: Open the dialog and set the error message
       setDialogDescription(`${response.data.error}: ${response.data.error_description}`);
@@ -161,7 +175,7 @@ export default function RoleViewPage() {
       const response = await apiClient.delete<DefaultStatusResponse>(`/api/roles/${id}`, null);
       if (response.status === 200) {
         setDialogDescription("Role deleted successfully.");
-        setInstanceDeleted(true); // Set instanceDeleted to true
+        setInstanceDeleted(true); 
       } else {
         setDialogDescription(response.data.error + " : " + response.data.error_description);
       }
@@ -236,6 +250,8 @@ export default function RoleViewPage() {
             if (response.status === 200) {
               setStatusDialogOpen(true);
               setDialogDescription(`${response.data.status}: ${response.data.message}`);
+              const updatedUsers = usersData.filter(user => user.username !== deleteUsername);
+              setUsersData(updatedUsers); // Update the usersData state to remove the deleted user
             } else {
               setStatusDialogOpen(true);
               setDialogDescription(`${response.data.error}: ${response.data.error_description}`);
