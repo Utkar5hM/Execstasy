@@ -12,13 +12,11 @@ import {
   IconUsers,
   IconUser,
 } from "@tabler/icons-react"
-import {jwtDecode} from "jwt-decode";
 
 import { NavDocuments } from "@/components/nav-documents"
 import { NavMain } from "@/components/nav-main"
 import { NavSecondary } from "@/components/nav-secondary"
 import { NavUser } from "@/components/nav-user"
-import CryptoJS from "crypto-js";
 import {
   Sidebar,
   SidebarContent,
