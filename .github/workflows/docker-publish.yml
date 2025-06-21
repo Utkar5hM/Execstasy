@@ -57,7 +57,7 @@ jobs:
         uses: docker/build-push-action@v5.0.0
         with:
           context: ./api
-          file: ./api/dockerfile
+          file: ./api/Dockerfile
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta-api.outputs.tags }}
           labels: ${{ steps.meta-api.outputs.labels }}
@@ -86,7 +86,7 @@ jobs:
         uses: docker/build-push-action@v5.0.0
         with:
           context: ./web
-          file: ./web/dockerfile
+          file: ./web/Dockerfile
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta-web.outputs.tags }}
           labels: ${{ steps.meta-web.outputs.labels }}
