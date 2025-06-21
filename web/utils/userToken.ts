@@ -8,13 +8,11 @@ interface CustomJwtPayload {
 	id?: number;
   }
 
+import Cookies from 'js-cookie';
   
 export const decodeJwt = (): { role?: string; name?: string; email?: string; username?: string; id?: number } | null => {
   if (typeof document !== "undefined") {
-    const jwt = document.cookie
-      .split("; ")
-      .find((row) => row.startsWith("jwt="))
-      ?.split("=")[1];
+    const jwt = Cookies.get('jwt');
 
     if (jwt) {
       try {
