@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/Utkar5hM/Execstasy/api/controllers/authentication"
 	"github.com/Utkar5hM/Execstasy/api/controllers/instances"
@@ -25,7 +26,7 @@ func main() {
 	}
 
 	dbpool, err := pgxpool.New(context.Background(), cfg.DATABASE_URL)
-	fmt.Println("API_DEBUG: " + os.Getenv("API_DEBUG"))
+	fmt.Println("API_DEBUG: " + strings.ToUpper(os.Getenv("API_DEBUG")))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to create connection pool: %v\n", err)
 		os.Exit(1)
@@ -47,7 +48,7 @@ func main() {
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 	e.Pre(middleware.MethodOverride())
-	if os.Getenv("API_DEBUG") != "DEBUG" {
+	if strings.ToUpper(os.Getenv("API_DEBUG")) != "TRUE" {
 		e.Use(middleware.Secure())
 	}
 	r := e.Group("/api")

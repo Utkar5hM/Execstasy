@@ -13,6 +13,8 @@ import { useEffect, useState } from "react";
 import { Skeleton } from "./ui/skeleton";
 
 const baseURL = process.env.NEXT_PUBLIC_BACKEND_URL || "";
+const GitlabEnabled = (process.env.NEXT_PUBLIC_ENABLE_GITLAB_OAUTH || "").toLowerCase() === "true";
+const GoogleEnabled = (process.env.NEXT_PUBLIC_ENABLE_GOOGLE_OAUTH || "").toLowerCase() === "true";
 
 export function LoginForm({
   className,
@@ -57,6 +59,7 @@ export function LoginForm({
         <CardContent>
         <div className="grid gap-6">
   <div className="flex flex-col gap-4">
+    { GoogleEnabled && (
     <form action={baseURL + "/api/users/oauth/google/login?challenge=" + codeChallenge}  method="GET">
     <input type="hidden" name="challenge" value={codeChallenge} />
       <Button type="submit" variant="outline" className="w-full">
@@ -69,6 +72,8 @@ export function LoginForm({
         Login with Google
       </Button>
     </form>
+    )}
+    { GitlabEnabled && (
     <form action={baseURL + "/api/users/oauth/gitlab/login?challenge=" + codeChallenge} method="GET">
     <input type="hidden" name="challenge" value={codeChallenge} />
       <Button type="submit" variant="outline" className="w-full">
@@ -81,6 +86,7 @@ export function LoginForm({
         Login with GitLab
       </Button>
     </form>
+    )}
   </div>
 </div>
         </CardContent>

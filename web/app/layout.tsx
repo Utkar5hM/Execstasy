@@ -1,17 +1,18 @@
-import { cookies } from "next/headers";
 import RootLayoutClient from "./root-layout";
+import { AuthProvider } from "@/components/auth";
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const cookieStore = await cookies();
-  const sidebarState = cookieStore.get("sidebar_state")?.value === "true";
+
 
   return (
-    <RootLayoutClient defaultOpen={sidebarState}>
-      {children}
-    </RootLayoutClient>
+    <AuthProvider>
+      <RootLayoutClient>
+        {children}
+      </RootLayoutClient>
+    </AuthProvider>
   );
 }

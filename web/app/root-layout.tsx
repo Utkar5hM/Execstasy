@@ -9,6 +9,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { SiteHeader } from "@/components/site-header"
 import { useEffect, useState } from "react";
 import { jwtDecode } from "jwt-decode";
+import Cookies from 'js-cookie';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -23,29 +24,26 @@ const geistMono = Geist_Mono({
 
 
 export default function RootLayoutClient({
-  children,
-  defaultOpen
+  children
 }: Readonly<{
   children: React.ReactNode;
-  defaultOpen: boolean;
 }>) {
   const pathname = usePathname(); // Get the current route
+  const [sidebarState, setSidebarState] = useState<boolean>(true);
   const isLoginPage = pathname === "/users/login"; // Check if the current route is `/users/login`
   const isLoginCallback = pathname === "/users/login/callback";
   const router = useRouter(); // Initialize useRouter for redirection
   const [isLoggedIn, setIsLoggedIn] = useState(false); // State to track login status
   const [loading, setLoading] = useState(true); // State to track loading status
 
+  useEffect(() => {
+    setSidebarState(Cookies.get("sidebar_state") === "true");
+  }, []);
 
   useEffect(() => {
     // Check for the `jwt` token in cookies
-    const cookies = document.cookie.split(";").reduce((acc, cookie) => {
-      const [key, value] = cookie.trim().split("=");
-      acc[key] = value;
-      return acc;
-    }, {} as Record<string, string>);
   
-    const token = cookies.jwt;
+    const token = Cookies.get('jwt'); // Get the token from cookies
   
     if (token) {
       try {
@@ -74,7 +72,7 @@ export default function RootLayoutClient({
   useEffect(() => {
     if (!loading && !isLoggedIn && !isLoginPage && !isLoginCallback) {
       router.push("/users/login");
-    } else if( !loading && isLoggedIn && isLoginPage && !isLoginCallback) {
+    } else if( !loading && isLoggedIn && (isLoginPage || isLoginCallback)) {
       router.push("/"); 
     }
   }, [loading, isLoggedIn, isLoginPage, router, isLoginCallback]);
@@ -93,7 +91,7 @@ export default function RootLayoutClient({
           {/* Conditionally render SidebarProvider */}
           {!isLoginPage ? (
             <SidebarProvider
-              defaultOpen={defaultOpen}
+              defaultOpen={sidebarState}
               style={
                 {
                   "--sidebar-width": "calc(var(--spacing) * 72)",

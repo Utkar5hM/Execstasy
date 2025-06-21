@@ -115,40 +115,12 @@ const data = {
     },
   ],
 }
-import { useState, useEffect } from "react";
 import Link from "next/link";
-import { AuthJwtPayload } from "@/utils/ResponseTypes";
+import { useAuth } from "@/components/auth";
+
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const [user, setUser] = useState({
-    name: "",
-    username: "",
-    avatar: "",
-  });
-  const generateGravatarUrl = (email: string): string => {
-    const hashedEmail = CryptoJS.MD5(email.trim().toLowerCase()).toString();
-    return `https://www.gravatar.com/avatar/${hashedEmail}`;
-  };
-  useEffect(() => {
-    const fetchUser = async () => {
-      if (typeof document !== "undefined") {
-        const jwt = document.cookie
-          .split("; ")
-          .find((row) => row.startsWith("jwt="))
-          ?.split("=")[1];
 
-        if (jwt) {
-          const decodedToken = jwtDecode<AuthJwtPayload>(jwt);
-          setUser({
-            name: decodedToken.name || "",
-            username: decodedToken.username || "",
-            avatar: generateGravatarUrl(decodedToken.email || ""),
-          });
-        }
-      }
-    };
-
-    fetchUser();
-  }, []);
+  const { user } = useAuth();
 
   return (
     <Sidebar collapsible="offcanvas" {...props}>

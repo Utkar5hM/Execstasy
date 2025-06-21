@@ -2,6 +2,8 @@ package config
 
 import (
 	"os"
+	"strings"
+
 	// this will automatically load your .env file:
 
 	"github.com/go-playground/validator/v10"
@@ -21,6 +23,8 @@ type Config struct {
 	GitlabLoginEndpoint string
 	FRONTEND_URL        string
 	BACKEND_URL         string
+	EnableGoogleOauth   bool
+	EnableGitlabOauth   bool
 }
 
 type Handler struct {
@@ -68,6 +72,8 @@ func LoadConfig() (*Config, error) {
 		},
 		GitlabLoginEndpoint: GITLAB_BASEURL,
 		FRONTEND_URL:        FRONTEND_URL,
+		EnableGoogleOauth:   strings.ToLower(os.Getenv("ENABLE_GOOGLE_OAUTH")) == "true",
+		EnableGitlabOauth:   strings.ToLower(os.Getenv("ENABLE_GITLAB_OAUTH")) == "true",
 	}
 
 	return cfg, nil

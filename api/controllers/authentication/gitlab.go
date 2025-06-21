@@ -61,21 +61,21 @@ func (h *AuthHandler) GitLabCallback(c echo.Context) error {
 	code := c.QueryParam("code")
 	state := c.QueryParam("state")
 	stateFromCookie := getSecureStateCookie(c)
-	if stateFromCookie != stateFromCookie {
+	if state != stateFromCookie {
 		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("Invalid state parameter", nil))
 	}
-	redirectURL := fmt.Sprintf("%s/users/login/callback?code=%s&state=%s", h.Config.FRONTEND_URL, code, state)
+	redirectURL := fmt.Sprintf("%s/users/login/callback?provider=gitlab&code=%s&state=%s", h.Config.FRONTEND_URL, code, state)
 	return c.Redirect(http.StatusFound, redirectURL)
 }
 
-type gitlabExchanceData struct {
+type oauthExchanceData struct {
 	CodeVerifier string `json:"code_verifier"`
 	Code         string `json:"code"`
 	State        string `json:"state"`
 }
 
 func (h *AuthHandler) GitLabExchange(c echo.Context) error {
-	var data gitlabExchanceData
+	var data oauthExchanceData
 	if err := c.Bind(&data); err != nil {
 		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("Invalid request body", err))
 	}
@@ -143,12 +143,12 @@ func (h *AuthHandler) GitLabExchange(c echo.Context) error {
 		return err
 	}
 
-	// cookie := new(http.Cookie)
-	// cookie.Name = "jwt"
-	// cookie.Value = tokenString
-	// cookie.Expires = time.Now().Add(72 * time.Hour)
-	// cookie.Path = "/"
-	// c.SetCookie(cookie)
+	cookie := new(http.Cookie)
+	cookie.Name = "jwt"
+	cookie.Value = tokenString
+	cookie.Expires = time.Now().Add(72 * time.Hour)
+	cookie.Path = "/"
+	c.SetCookie(cookie)
 	return c.JSON(http.StatusOK, echo.Map{
 		"message":      "Login successful",
 		"status":       "success",

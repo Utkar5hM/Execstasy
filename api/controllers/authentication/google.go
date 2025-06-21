@@ -19,17 +19,40 @@ type AuthHandler struct {
 }
 
 func (h *AuthHandler) GoogleLogin(c echo.Context) error {
-	url := h.Config.GoogleLoginConfig.AuthCodeURL("state", oauth2.AccessTypeOffline)
+	challenge := c.QueryParam("challenge")
+	state := generateRandomState()
+	setSecureStateCookie(c, state)
+	url := h.Config.GoogleLoginConfig.AuthCodeURL(
+		state,
+		oauth2.SetAuthURLParam("code_challenge", challenge),
+		oauth2.SetAuthURLParam("code_challenge_method", "S256"),
+		oauth2.AccessTypeOffline)
 	return c.Redirect(http.StatusTemporaryRedirect, url)
 }
 
 func (h *AuthHandler) GoogleCallback(c echo.Context) error {
 	code := c.QueryParam("code")
-	token, err := h.Config.GoogleLoginConfig.Exchange(c.Request().Context(), code)
+	state := c.QueryParam("state")
+	stateFromCookie := getSecureStateCookie(c)
+	if state != stateFromCookie {
+		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("Invalid state parameter", nil))
+	}
+	redirectURL := fmt.Sprintf("%s/users/login/callback?provider=google&code=%s&state=%s", h.Config.FRONTEND_URL, code, state)
+	return c.Redirect(http.StatusFound, redirectURL)
+}
+
+func (h *AuthHandler) GoogleExchange(c echo.Context) error {
+	var data oauthExchanceData
+	if err := c.Bind(&data); err != nil {
+		return c.JSON(http.StatusBadRequest, helper.ErrorMessage("Invalid request body", err))
+	}
+	token, err := h.Config.GoogleLoginConfig.Exchange(
+		c.Request().Context(),
+		data.Code,
+		oauth2.SetAuthURLParam("code_verifier", data.CodeVerifier))
 	if err != nil {
 		return err
 	}
-
 	client := h.Config.GoogleLoginConfig.Client(c.Request().Context(), token)
 	resp, err := client.Get("https://www.googleapis.com/oauth2/v2/userinfo")
 	if err != nil {
@@ -74,6 +97,7 @@ func (h *AuthHandler) GoogleCallback(c echo.Context) error {
 		}
 	}
 
+	expiry := time.Now().Add(time.Hour * 72)
 	// Generate JWT token
 	claims := &JwtCustomClaims{
 		sql_fetched_user.Name,
@@ -82,7 +106,7 @@ func (h *AuthHandler) GoogleCallback(c echo.Context) error {
 		sql_fetched_user.Id,
 		sql_fetched_user.Email,
 		jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour * 72)),
+			ExpiresAt: jwt.NewNumericDate(expiry),
 		},
 	}
 	tokenString, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(h.Config.JWT_SECRET))
@@ -98,6 +122,10 @@ func (h *AuthHandler) GoogleCallback(c echo.Context) error {
 	cookie.Path = "/"
 	c.SetCookie(cookie)
 
-	redirectURL := fmt.Sprintf("%s/users/login/callback?access_token=%s", h.Config.FRONTEND_URL, tokenString)
-	return c.Redirect(http.StatusFound, redirectURL)
+	return c.JSON(http.StatusOK, echo.Map{
+		"message":      "Login successful",
+		"status":       "success",
+		"access_token": tokenString,
+		"expiry":       expiry,
+	})
 }
